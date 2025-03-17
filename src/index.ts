@@ -1,7 +1,7 @@
 import { MongoClient } from "mongodb";
 import goSleep from "sleep-promise";
 
-const DEFAULT_COLL_NAME = "workflows";
+const COLL_NAME = "workflows";
 const DEFAULT_TIMEOUT_MS = 300_000; // 5m
 const DEFAULT_POLL_MS = 5_000; // 5s
 const DEFAULT_MAX_FAILURES = 3;
@@ -33,7 +33,7 @@ interface Workflow {
   lastError?: string;
 }
 
-interface Context {
+export interface Context {
   act<T>(id: string, fn: () => Promise<T>): Promise<T>;
   sleep(id: string, ms: number): Promise<void>;
   start<T>(id: string, functionName: string, input: T): Promise<void>;
@@ -41,17 +41,15 @@ interface Context {
 
 type WorkflowFn = (ctx: Context, input: unknown) => Promise<void>;
 
-interface Config {
+export interface Config {
   mongoUrl: string;
   dbName: string;
-  now: () => Date;
-  functions: Map<string, WorkflowFn>;
   maxFailures?: number;
   timeoutIntervalMs?: number;
   pollIntervalMs?: number;
 }
 
-interface Client {
+export interface Client {
   start<T>(id: string, functionName: string, input: T): Promise<void>;
 
   wait(
@@ -64,14 +62,17 @@ interface Client {
   poll(): Promise<void>;
 }
 
-export async function createClient(config: Config): Promise<Client> {
-  const { mongoUrl, dbName, now, functions } = config;
+export async function createClient(
+  functions: Map<string, WorkflowFn>,
+  now: () => Date,
+  config: Config
+): Promise<Client> {
   const maxFailures = config.maxFailures || DEFAULT_MAX_FAILURES;
   const timeoutIntervalMs = config.timeoutIntervalMs || DEFAULT_TIMEOUT_MS;
   const pollIntervalMs = config.pollIntervalMs || DEFAULT_POLL_MS;
-  const mongo = new MongoClient(mongoUrl);
-  const db = mongo.db(dbName);
-  const workflows = db.collection<Workflow>(DEFAULT_COLL_NAME);
+  const mongo = new MongoClient(config.mongoUrl);
+  const db = mongo.db(config.dbName);
+  const workflows = db.collection<Workflow>(COLL_NAME);
   await workflows.createIndex({ id: 1 }, { unique: true });
   await workflows.createIndex({ status: 1 });
   await workflows.createIndex({ status: 1, timeoutAt: 1 });
