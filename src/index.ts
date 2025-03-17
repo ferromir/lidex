@@ -199,24 +199,23 @@ export async function createClient(
       throw new Error(`workflow not found: ${workflowId}`);
     }
 
-    const ctx: Context = {
-      act: act(workflowId),
-      sleep: sleep(workflowId),
-      start,
-    };
-
     const fn = functions.get(workflow.functionName);
 
     if (!fn) {
       throw new Error(`function not found: ${workflow.functionName}`);
     }
 
+    const ctx = {
+      act: act(workflowId),
+      sleep: sleep(workflowId),
+      start,
+    };
+
     try {
       await fn(ctx, workflow.input);
       const update = { $set: { status: FINISHED } };
       await workflows.updateOne(filter, update);
     } catch (err) {
-      console.error(err);
       let lastError = "";
 
       if (err instanceof Error) {
