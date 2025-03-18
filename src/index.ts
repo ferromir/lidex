@@ -3,17 +3,10 @@ import goSleep from "sleep-promise";
 
 const COLL_NAME = "workflows";
 
-type Status =
-  | "idle"
-  | "running"
-  | "sleeping"
-  | "failed"
-  | "finished"
-  | "aborted";
+type Status = "idle" | "running" | "failed" | "finished" | "aborted";
 
 const IDLE: Status = "idle";
 const RUNNING: Status = "running";
-const SLEEPING: Status = "sleeping";
 const FAILED: Status = "failed";
 const FINISHED: Status = "finished";
 const ABORTED: Status = "aborted";
@@ -75,7 +68,7 @@ export async function createClient(
       $or: [
         { status: IDLE },
         {
-          status: { $in: [RUNNING, SLEEPING, FAILED] },
+          status: { $in: [RUNNING, FAILED] },
           timeoutAt: { $lt: t },
         },
       ],
@@ -116,7 +109,7 @@ export async function createClient(
         throw new Error(`workflow not found: ${workflowId}`);
       }
 
-      if (workflow.actions && workflow.actions[id]) {
+      if (workflow.actions && workflow.actions[id] != undefined) {
         return workflow.actions[id] as T;
       }
 
@@ -151,25 +144,23 @@ export async function createClient(
 
         if (remainingMs > 0) {
           await goSleep(remainingMs);
-          return;
         }
+
+        return;
       }
 
       const sleepUntil = new Date(t.getTime() + ms);
       const timeoutAt = new Date(sleepUntil.getTime() + timeoutIntervalMs);
 
-      const update1 = {
+      const update = {
         $set: {
-          status: SLEEPING,
           [`naps.${id}`]: sleepUntil,
           timeoutAt,
         },
       };
 
-      await workflows.updateOne(filter, update1);
+      await workflows.updateOne(filter, update);
       await goSleep(ms);
-      const update2 = { $set: { status: RUNNING } };
-      await workflows.updateOne(filter, update2);
     };
   }
 
@@ -207,13 +198,13 @@ export async function createClient(
       await fn(ctx, workflow.input);
       const update = { $set: { status: FINISHED } };
       await workflows.updateOne(filter, update);
-    } catch (err) {
+    } catch (error) {
       let lastError = "";
 
-      if (err instanceof Error) {
-        lastError = err.message;
+      if (error instanceof Error) {
+        lastError = error.message;
       } else {
-        lastError = JSON.stringify(err);
+        lastError = JSON.stringify(error);
       }
 
       const failures = (workflow.failures || 0) + 1;
@@ -252,7 +243,7 @@ export async function createClient(
       const e = error as { name: string; code: number };
 
       // Workflow already started, ignore.
-      if (e.name === "MongoError" && e.code === 11000) {
+      if (e.name === "MongoServerError" && e.code === 11000) {
         return;
       }
 
