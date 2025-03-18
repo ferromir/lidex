@@ -2,9 +2,6 @@ import { MongoClient } from "mongodb";
 import goSleep from "sleep-promise";
 
 const COLL_NAME = "workflows";
-const DEFAULT_TIMEOUT_MS = 300_000; // 5m
-const DEFAULT_POLL_MS = 5_000; // 5s
-const DEFAULT_MAX_FAILURES = 3;
 
 type Status =
   | "idle"
@@ -41,14 +38,6 @@ export interface Context {
 
 type WorkflowFn = (ctx: Context, input: unknown) => Promise<void>;
 
-export interface Config {
-  mongoUrl: string;
-  dbName: string;
-  maxFailures?: number;
-  timeoutIntervalMs?: number;
-  pollIntervalMs?: number;
-}
-
 export interface Client {
   start<T>(id: string, functionName: string, input: T): Promise<void>;
   status(id: string): Promise<Status | undefined>;
@@ -65,14 +54,14 @@ export interface Client {
 
 export async function createClient(
   functions: Map<string, WorkflowFn>,
-  now: () => Date,
-  config: Config
+  now: () => Date = () => new Date(),
+  mongoUrl: string = "mongodb://localhost:27017/lidex",
+  maxFailures: number = 3,
+  timeoutIntervalMs: number = 300_000,
+  pollIntervalMs: number = 5_000
 ): Promise<Client> {
-  const maxFailures = config.maxFailures || DEFAULT_MAX_FAILURES;
-  const timeoutIntervalMs = config.timeoutIntervalMs || DEFAULT_TIMEOUT_MS;
-  const pollIntervalMs = config.pollIntervalMs || DEFAULT_POLL_MS;
-  const mongo = new MongoClient(config.mongoUrl);
-  const db = mongo.db(config.dbName);
+  const mongo = new MongoClient(mongoUrl);
+  const db = mongo.db();
   const workflows = db.collection<Workflow>(COLL_NAME);
   await workflows.createIndex({ id: 1 }, { unique: true });
   await workflows.createIndex({ status: 1 });
@@ -169,7 +158,7 @@ export async function createClient(
       const sleepUntil = new Date(t.getTime() + ms);
       const timeoutAt = new Date(sleepUntil.getTime() + timeoutIntervalMs);
 
-      const update = {
+      const update1 = {
         $set: {
           status: SLEEPING,
           [`naps.${id}`]: sleepUntil,
@@ -177,8 +166,10 @@ export async function createClient(
         },
       };
 
-      await workflows.updateOne(filter, update);
+      await workflows.updateOne(filter, update1);
       await goSleep(ms);
+      const update2 = { $set: { status: RUNNING } };
+      await workflows.updateOne(filter, update2);
     };
   }
 
