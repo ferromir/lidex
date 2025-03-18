@@ -5,4 +5,7 @@ module.exports = {
     "^.+.tsx?$": ["ts-jest", {}],
   },
   modulePathIgnorePatterns: ["<rootDir>/dist/"],
+  preset: "ts-jest",
+  collectCoverage: true,
+  collectCoverageFrom: ["<rootDir>/**/*.ts"],
 };
