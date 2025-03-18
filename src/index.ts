@@ -57,7 +57,7 @@ export interface Client {
     status: Status[],
     times: number,
     ms: number
-  ): Promise<boolean>;
+  ): Promise<Status | undefined>;
 
   poll(): Promise<void>;
 }
@@ -262,7 +262,7 @@ export async function createClient(
     status: Status[],
     times: number,
     ms: number
-  ): Promise<boolean> {
+  ): Promise<Status | undefined> {
     const filter = {
       id,
       status: { $in: status },
@@ -271,7 +271,7 @@ export async function createClient(
     const options = {
       projection: {
         _id: 0,
-        id: 1,
+        status: 1,
       },
     };
 
@@ -279,13 +279,13 @@ export async function createClient(
       const workflow = await workflows.findOne(filter, options);
 
       if (workflow) {
-        return true;
+        return workflow.status;
       }
 
       await goSleep(ms);
     }
 
-    return false;
+    return undefined;
   }
 
   async function poll(): Promise<void> {
