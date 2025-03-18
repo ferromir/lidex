@@ -13,7 +13,7 @@
     "workflow"
   ],
   "author": "Fernando Romero",
-  "license": "ISC",
+  "license": "MIT",
   "description": "lightweight durable execution library",
   "devDependencies": {
     "@types/jest": "^29.5.14",
