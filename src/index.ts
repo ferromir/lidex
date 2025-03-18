@@ -51,6 +51,7 @@ export interface Config {
 
 export interface Client {
   start<T>(id: string, functionName: string, input: T): Promise<void>;
+  status(id: string): Promise<Status | undefined>;
 
   wait(
     id: string,
@@ -247,14 +248,39 @@ export async function createClient(
     functionName: string,
     input: T
   ): Promise<void> {
-    const workflow: Workflow = {
+    const workflow = {
       id,
       functionName,
       input,
       status: IDLE,
     };
 
-    await workflows.insertOne(workflow);
+    try {
+      await workflows.insertOne(workflow);
+    } catch (error) {
+      const e = error as { name: string; code: number };
+
+      // Workflow already started, ignore.
+      if (e.name === "MongoError" && e.code === 11000) {
+        return;
+      }
+
+      throw error;
+    }
+  }
+
+  async function status(id: string): Promise<Status | undefined> {
+    const filter = { id };
+
+    const options = {
+      projection: {
+        _id: 0,
+        id: 1,
+      },
+    };
+
+    const workflow = await workflows.findOne(filter, options);
+    return workflow?.status;
   }
 
   async function wait(
@@ -302,6 +328,7 @@ export async function createClient(
 
   return {
     start,
+    status,
     wait,
     poll,
   };
