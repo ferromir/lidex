@@ -6,8 +6,9 @@ const DEFAULT_MAX_FAILURES = 3;
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_POLL_MS = 1_000;
 const DEFAULT_MONGO_URL = "mongodb://localhost:27017/lidex";
+const ERROR_NAME = "LidexError";
 
-type Status = "idle" | "running" | "failed" | "finished" | "aborted";
+export type Status = "idle" | "running" | "failed" | "finished" | "aborted";
 
 const IDLE: Status = "idle";
 const RUNNING: Status = "running";
@@ -15,7 +16,7 @@ const FAILED: Status = "failed";
 const FINISHED: Status = "finished";
 const ABORTED: Status = "aborted";
 
-interface Workflow {
+export interface Workflow {
   id: string;
   functionName: string;
   input: unknown;
@@ -34,11 +35,11 @@ export interface Context {
   start<T>(id: string, functionName: string, input: T): Promise<void>;
 }
 
-type WorkflowFn = (ctx: Context, input: unknown) => Promise<void>;
+export type WorkflowFn = (ctx: Context, input: unknown) => Promise<void>;
 
 export interface Client {
   start<T>(id: string, functionName: string, input: T): Promise<boolean>;
-  status(id: string): Promise<Status | undefined>;
+  find(id: string): Promise<Workflow | undefined>;
 
   wait(
     id: string,
@@ -59,6 +60,15 @@ export interface Config {
   pollIntervalMs?: number;
 }
 
+export class LidexError extends Error {
+  name: string;
+
+  constructor(message: string) {
+    super(message);
+    this.name = ERROR_NAME;
+  }
+}
+
 export async function createClient(config: Config = {}): Promise<Client> {
   const functions = config.functions || new Map();
   const now = config.now || (() => new Date());
@@ -77,49 +87,49 @@ export async function createClient(config: Config = {}): Promise<Client> {
     const t = now();
     const timeoutAt = new Date(t.getTime() + timeoutIntervalMs);
 
-    const filter = {
-      $or: [
-        { status: IDLE },
-        {
-          status: { $in: [RUNNING, FAILED] },
-          timeoutAt: { $lt: t },
+    const workflow = await workflows.findOneAndUpdate(
+      {
+        $or: [
+          { status: IDLE },
+          {
+            status: { $in: [RUNNING, FAILED] },
+            timeoutAt: { $lt: t },
+          },
+        ],
+      },
+      {
+        $set: {
+          status: RUNNING,
+          timeoutAt,
         },
-      ],
-    };
-
-    const update = {
-      $set: {
-        status: RUNNING,
-        timeoutAt,
       },
-    };
+      {
+        projection: {
+          _id: 0,
+          id: 1,
+        },
+      }
+    );
 
-    const options = {
-      projection: {
-        _id: 0,
-        id: 1,
-      },
-    };
-
-    const workflow = await workflows.findOneAndUpdate(filter, update, options);
     return workflow?.id;
   }
 
   function act(workflowId: string) {
     return async function <T>(id: string, fn: () => Promise<T>): Promise<T> {
-      const filter = { id: workflowId };
-
-      const options = {
-        projection: {
-          _id: 0,
-          [`actions.${id}`]: 1,
+      const workflow = await workflows.findOne(
+        {
+          id: workflowId,
         },
-      };
-
-      const workflow = await workflows.findOne(filter, options);
+        {
+          projection: {
+            _id: 0,
+            [`actions.${id}`]: 1,
+          },
+        }
+      );
 
       if (!workflow) {
-        throw new Error(`workflow not found: ${workflowId}`);
+        throw new LidexError(`workflow not found: ${workflowId}`);
       }
 
       if (workflow.actions && workflow.actions[id] != undefined) {
@@ -127,27 +137,36 @@ export async function createClient(config: Config = {}): Promise<Client> {
       }
 
       const output = await fn();
-      const update = { $set: { [`actions.${id}`]: output } };
-      await workflows.updateOne(filter, update);
+
+      await workflows.updateOne(
+        {
+          id: workflowId,
+        },
+        {
+          $set: { [`actions.${id}`]: output },
+        }
+      );
+
       return output;
     };
   }
 
   function sleep(workflowId: string) {
     return async function (id: string, ms: number): Promise<void> {
-      const filter = { id: workflowId };
-
-      const options = {
-        projection: {
-          _id: 0,
-          [`naps.${id}`]: 1,
+      const workflow = await workflows.findOne(
+        {
+          id: workflowId,
         },
-      };
-
-      const workflow = await workflows.findOne(filter, options);
+        {
+          projection: {
+            _id: 0,
+            [`naps.${id}`]: 1,
+          },
+        }
+      );
 
       if (!workflow) {
-        throw new Error(`workflow not found: ${workflowId}`);
+        throw new LidexError(`workflow not found: ${workflowId}`);
       }
 
       const t = now();
@@ -165,40 +184,45 @@ export async function createClient(config: Config = {}): Promise<Client> {
       const sleepUntil = new Date(t.getTime() + ms);
       const timeoutAt = new Date(sleepUntil.getTime() + timeoutIntervalMs);
 
-      const update = {
-        $set: {
-          [`naps.${id}`]: sleepUntil,
-          timeoutAt,
+      await workflows.updateOne(
+        {
+          id: workflowId,
         },
-      };
+        {
+          $set: {
+            [`naps.${id}`]: sleepUntil,
+            timeoutAt,
+          },
+        }
+      );
 
-      await workflows.updateOne(filter, update);
       await goSleep(ms);
     };
   }
 
   async function run(workflowId: string): Promise<void> {
-    const filter = { id: workflowId };
-
-    const options = {
-      projection: {
-        _id: 0,
-        functionName: 1,
-        input: 1,
-        failures: 1,
+    const workflow = await workflows.findOne(
+      {
+        id: workflowId,
       },
-    };
-
-    const workflow = await workflows.findOne(filter, options);
+      {
+        projection: {
+          _id: 0,
+          functionName: 1,
+          input: 1,
+          failures: 1,
+        },
+      }
+    );
 
     if (!workflow) {
-      throw new Error(`workflow not found: ${workflowId}`);
+      throw new LidexError(`workflow not found: ${workflowId}`);
     }
 
     const fn = functions.get(workflow.functionName);
 
     if (!fn) {
-      throw new Error(`function not found: ${workflow.functionName}`);
+      throw new LidexError(`function not found: ${workflow.functionName}`);
     }
 
     const ctx = {
@@ -209,8 +233,15 @@ export async function createClient(config: Config = {}): Promise<Client> {
 
     try {
       await fn(ctx, workflow.input);
-      const update = { $set: { status: FINISHED } };
-      await workflows.updateOne(filter, update);
+
+      await workflows.updateOne(
+        {
+          id: workflowId,
+        },
+        {
+          $set: { status: FINISHED },
+        }
+      );
     } catch (error) {
       let lastError = "";
 
@@ -225,16 +256,17 @@ export async function createClient(config: Config = {}): Promise<Client> {
       const t = now();
       const timeoutAt = new Date(t.getTime() + timeoutIntervalMs);
 
-      const update = {
-        $set: {
-          status,
-          timeoutAt,
-          failures,
-          lastError,
-        },
-      };
-
-      await workflows.updateOne(filter, update);
+      await workflows.updateOne(
+        { id: workflowId },
+        {
+          $set: {
+            status,
+            timeoutAt,
+            failures,
+            lastError,
+          },
+        }
+      );
     }
   }
 
@@ -265,18 +297,9 @@ export async function createClient(config: Config = {}): Promise<Client> {
     }
   }
 
-  async function status(id: string): Promise<Status | undefined> {
-    const filter = { id };
-
-    const options = {
-      projection: {
-        _id: 0,
-        id: 1,
-      },
-    };
-
-    const workflow = await workflows.findOne(filter, options);
-    return workflow?.status;
+  async function find(id: string): Promise<Workflow | undefined> {
+    const workflow = await workflows.findOne({ id });
+    return !!workflow ? workflow : undefined;
   }
 
   async function wait(
@@ -285,20 +308,19 @@ export async function createClient(config: Config = {}): Promise<Client> {
     times: number,
     ms: number
   ): Promise<Status | undefined> {
-    const filter = {
-      id,
-      status: { $in: status },
-    };
-
-    const options = {
-      projection: {
-        _id: 0,
-        status: 1,
-      },
-    };
-
     for (let i = 0; i < times; i++) {
-      const workflow = await workflows.findOne(filter, options);
+      const workflow = await workflows.findOne(
+        {
+          id,
+          status: { $in: status },
+        },
+        {
+          projection: {
+            _id: 0,
+            status: 1,
+          },
+        }
+      );
 
       if (workflow) {
         return workflow.status;
@@ -324,7 +346,7 @@ export async function createClient(config: Config = {}): Promise<Client> {
 
   return {
     start,
-    status,
+    find,
     wait,
     poll,
   };
