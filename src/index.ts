@@ -7,14 +7,15 @@ const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_POLL_MS = 1_000;
 const DEFAULT_MONGO_URL = "mongodb://localhost:27017/lidex";
 const ERROR_NAME = "LidexError";
+const MONGO_ERROR_NAME = "MongoServerError";
+const MONGO_ERROR_CODE = 11000;
+const IDLE = "idle";
+const RUNNING = "running";
+const FAILED = "failed";
+const FINISHED = "finished";
+const ABORTED = "aborted";
 
 export type Status = "idle" | "running" | "failed" | "finished" | "aborted";
-
-const IDLE: Status = "idle";
-const RUNNING: Status = "running";
-const FAILED: Status = "failed";
-const FINISHED: Status = "finished";
-const ABORTED: Status = "aborted";
 
 interface Workflow {
   id: string;
@@ -290,7 +291,7 @@ export async function createClient(config: Config = {}): Promise<Client> {
       const e = error as { name: string; code: number };
 
       // Workflow already started, ignore.
-      if (e.name === "MongoServerError" && e.code === 11000) {
+      if (e.name === MONGO_ERROR_NAME && e.code === MONGO_ERROR_CODE) {
         return false;
       }
 

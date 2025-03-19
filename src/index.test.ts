@@ -3,6 +3,7 @@ import { createClient } from "./index";
 const createIndex = jest.fn();
 const insertOne = jest.fn();
 const findOne = jest.fn();
+const findOneAndUpdate = jest.fn();
 
 jest.mock("mongodb", () => ({
   MongoClient: jest.fn().mockImplementation(() => ({
@@ -11,6 +12,7 @@ jest.mock("mongodb", () => ({
         createIndex,
         insertOne,
         findOne,
+        findOneAndUpdate,
       })),
     })),
   })),
@@ -40,6 +42,10 @@ describe("createClient", () => {
 });
 
 describe("start", () => {
+  beforeEach(() => {
+    insertOne.mockReset();
+  });
+
   it("creates a workflow", async () => {
     const t = new Date("2011-10-05T14:48:00.000Z");
     const client = await createClient({ now: () => t });
@@ -98,6 +104,11 @@ describe("start", () => {
 });
 
 describe("wait", () => {
+  beforeEach(() => {
+    findOne.mockReset();
+    goSleep.mockReset();
+  });
+
   it("tries n times to find a matching workflow", async () => {
     findOne
       .mockResolvedValueOnce(null)
@@ -143,5 +154,20 @@ describe("wait", () => {
         },
       }
     );
+  });
+});
+
+describe("poll", () => {
+  beforeEach(() => {
+    goSleep.mockReset();
+  });
+
+  it("waits before polling if no workflow is claimed", async () => {
+    goSleep.mockImplementation(() => {
+      throw new Error("abort");
+    });
+
+    const client = await createClient();
+    await expect(client.poll()).rejects.toThrow("abort");
   });
 });
