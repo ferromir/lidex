@@ -20,6 +20,7 @@ interface Workflow {
   functionName: string;
   input: unknown;
   status: Status;
+  createdAt: Date;
   timeoutAt?: Date;
   actions?: { [key: string]: unknown };
   naps?: { [key: string]: Date };
@@ -242,15 +243,15 @@ export async function createClient(config: Config = {}): Promise<Client> {
     functionName: string,
     input: T
   ): Promise<boolean> {
-    const workflow = {
-      id,
-      functionName,
-      input,
-      status: IDLE,
-    };
-
     try {
-      await workflows.insertOne(workflow);
+      await workflows.insertOne({
+        id,
+        functionName,
+        input,
+        status: IDLE,
+        createdAt: now(),
+      });
+
       return true;
     } catch (error) {
       const e = error as { name: string; code: number };
