@@ -16,7 +16,7 @@ const FAILED: Status = "failed";
 const FINISHED: Status = "finished";
 const ABORTED: Status = "aborted";
 
-export interface Workflow {
+interface Workflow {
   id: string;
   functionName: string;
   input: unknown;
@@ -39,7 +39,6 @@ export type WorkflowFn = (ctx: Context, input: unknown) => Promise<void>;
 
 export interface Client {
   start<T>(id: string, functionName: string, input: T): Promise<boolean>;
-  find(id: string): Promise<Workflow | undefined>;
 
   wait(
     id: string,
@@ -257,7 +256,9 @@ export async function createClient(config: Config = {}): Promise<Client> {
       const timeoutAt = new Date(t.getTime() + timeoutIntervalMs);
 
       await workflows.updateOne(
-        { id: workflowId },
+        {
+          id: workflowId,
+        },
         {
           $set: {
             status,
@@ -295,11 +296,6 @@ export async function createClient(config: Config = {}): Promise<Client> {
 
       throw error;
     }
-  }
-
-  async function find(id: string): Promise<Workflow | undefined> {
-    const workflow = await workflows.findOne({ id });
-    return !!workflow ? workflow : undefined;
   }
 
   async function wait(
@@ -346,7 +342,6 @@ export async function createClient(config: Config = {}): Promise<Client> {
 
   return {
     start,
-    find,
     wait,
     poll,
   };

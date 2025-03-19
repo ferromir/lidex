@@ -21,7 +21,6 @@ describe("createClient", () => {
     expect(createIndex).toHaveBeenNthCalledWith(2, { status: 1 });
     expect(createIndex).toHaveBeenNthCalledWith(3, { status: 1, timeoutAt: 1 });
     expect(client.start).toBeDefined();
-    expect(client.find).toBeDefined();
     expect(client.wait).toBeDefined();
     expect(client.poll).toBeDefined();
   });
