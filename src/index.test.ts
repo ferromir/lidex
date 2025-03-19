@@ -14,7 +14,7 @@ jest.mock("mongodb", () => ({
 
 describe("createClient", () => {
   it("creates a Client instance", async () => {
-    const client = await createClient(new Map());
+    const client = await createClient();
     expect(createIndex).toHaveBeenNthCalledWith(1, { id: 1 }, { unique: true });
     expect(createIndex).toHaveBeenNthCalledWith(2, { status: 1 });
     expect(createIndex).toHaveBeenNthCalledWith(3, { status: 1, timeoutAt: 1 });

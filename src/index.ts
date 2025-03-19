@@ -2,6 +2,10 @@ import { MongoClient } from "mongodb";
 import goSleep from "sleep-promise";
 
 const COLL_NAME = "workflows";
+const DEFAULT_MAX_FAILURES = 3;
+const DEFAULT_TIMEOUT_MS = 60_000;
+const DEFAULT_POLL_MS = 1_000;
+const DEFAULT_MONGO_URL = "mongodb://localhost:27017/lidex";
 
 type Status = "idle" | "running" | "failed" | "finished" | "aborted";
 
@@ -32,7 +36,7 @@ export interface Context {
 type WorkflowFn = (ctx: Context, input: unknown) => Promise<void>;
 
 export interface Client {
-  start<T>(id: string, functionName: string, input: T): Promise<void>;
+  start<T>(id: string, functionName: string, input: T): Promise<boolean>;
   status(id: string): Promise<Status | undefined>;
 
   wait(
@@ -45,14 +49,22 @@ export interface Client {
   poll(): Promise<void>;
 }
 
-export async function createClient(
-  functions: Map<string, WorkflowFn>,
-  now: () => Date = () => new Date(),
-  mongoUrl: string = "mongodb://localhost:27017/lidex",
-  maxFailures: number = 3,
-  timeoutIntervalMs: number = 300_000,
-  pollIntervalMs: number = 5_000
-): Promise<Client> {
+export interface Config {
+  functions?: Map<string, WorkflowFn>;
+  now?: () => Date;
+  mongoUrl?: string;
+  maxFailures?: number;
+  timeoutIntervalMs?: number;
+  pollIntervalMs?: number;
+}
+
+export async function createClient(config: Config = {}): Promise<Client> {
+  const functions = config.functions || new Map();
+  const now = config.now || (() => new Date());
+  const mongoUrl = config.mongoUrl || DEFAULT_MONGO_URL;
+  const maxFailures = config.maxFailures || DEFAULT_MAX_FAILURES;
+  const timeoutIntervalMs = config.timeoutIntervalMs || DEFAULT_TIMEOUT_MS;
+  const pollIntervalMs = config.pollIntervalMs || DEFAULT_POLL_MS;
   const mongo = new MongoClient(mongoUrl);
   const db = mongo.db();
   const workflows = db.collection<Workflow>(COLL_NAME);
@@ -229,7 +241,7 @@ export async function createClient(
     id: string,
     functionName: string,
     input: T
-  ): Promise<void> {
+  ): Promise<boolean> {
     const workflow = {
       id,
       functionName,
@@ -239,12 +251,13 @@ export async function createClient(
 
     try {
       await workflows.insertOne(workflow);
+      return true;
     } catch (error) {
       const e = error as { name: string; code: number };
 
       // Workflow already started, ignore.
       if (e.name === "MongoServerError" && e.code === 11000) {
-        return;
+        return false;
       }
 
       throw error;
