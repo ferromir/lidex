@@ -46,7 +46,7 @@ describe("start", () => {
     const created = await client.start("workflow-1", "function-1", "input-1");
     expect(created).toBeTruthy();
 
-    expect(insertOne.mock.calls[0][0]).toEqual({
+    expect(insertOne).toHaveBeenCalledWith({
       id: "workflow-1",
       functionName: "function-1",
       input: "input-1",
@@ -68,7 +68,7 @@ describe("start", () => {
     const created = await client.start("workflow-1", "function-1", "input-1");
     expect(created).toBeFalsy();
 
-    expect(insertOne.mock.calls[0][0]).toEqual({
+    expect(insertOne).toHaveBeenCalledWith({
       id: "workflow-1",
       functionName: "function-1",
       input: "input-1",
@@ -87,7 +87,7 @@ describe("start", () => {
     const p = client.start("workflow-1", "function-1", "input-1");
     await expect(p).rejects.toThrow("test");
 
-    expect(insertOne.mock.calls[0][0]).toEqual({
+    expect(insertOne).toHaveBeenCalledWith({
       id: "workflow-1",
       functionName: "function-1",
       input: "input-1",
@@ -108,7 +108,8 @@ describe("wait", () => {
     expect(status).toBe("finished");
 
     for (let i = 0; i < 2; i++) {
-      expect(findOne.mock.calls[i]).toEqual([
+      expect(findOne).toHaveBeenNthCalledWith(
+        i + 1,
         {
           id: "workflow-1",
           status: { $in: ["finished"] },
@@ -118,8 +119,8 @@ describe("wait", () => {
             _id: 0,
             status: 1,
           },
-        },
-      ]);
+        }
+      );
     }
 
     expect(goSleep).toHaveBeenCalledWith(10);
@@ -130,7 +131,7 @@ describe("wait", () => {
     const status = await client.wait("workflow-1", ["finished"], 1, 10);
     expect(status).toBeUndefined();
 
-    expect(findOne.mock.calls[0]).toEqual([
+    expect(findOne).toHaveBeenCalledWith(
       {
         id: "workflow-1",
         status: { $in: ["finished"] },
@@ -140,7 +141,7 @@ describe("wait", () => {
           _id: 0,
           status: 1,
         },
-      },
-    ]);
+      }
+    );
   });
 });
