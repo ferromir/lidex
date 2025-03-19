@@ -2,6 +2,7 @@ import { createClient } from "./index";
 
 const createIndex = jest.fn();
 const insertOne = jest.fn();
+const findOne = jest.fn();
 
 jest.mock("mongodb", () => ({
   MongoClient: jest.fn().mockImplementation(() => ({
@@ -9,36 +10,49 @@ jest.mock("mongodb", () => ({
       collection: jest.fn().mockImplementation(() => ({
         createIndex,
         insertOne,
+        findOne,
       })),
     })),
   })),
 }));
 
+const goSleep = jest.fn();
+
+jest.mock("sleep-promise", () => {
+  const m = jest.fn();
+  return {
+    ...jest.requireActual("sleep-promise"),
+    __esModule: true,
+    default: m.mockImplementation((...args) => goSleep(...args)),
+  };
+});
+
 describe("createClient", () => {
   it("creates a Client instance", async () => {
     const client = await createClient();
-    expect(createIndex).toHaveBeenNthCalledWith(1, { id: 1 }, { unique: true });
-    expect(createIndex).toHaveBeenNthCalledWith(2, { status: 1 });
-    expect(createIndex).toHaveBeenNthCalledWith(3, { status: 1, timeoutAt: 1 });
     expect(client.start).toBeDefined();
     expect(client.wait).toBeDefined();
     expect(client.poll).toBeDefined();
+    expect(createIndex).toHaveBeenNthCalledWith(1, { id: 1 }, { unique: true });
+    expect(createIndex).toHaveBeenNthCalledWith(2, { status: 1 });
+    expect(createIndex).toHaveBeenNthCalledWith(3, { status: 1, timeoutAt: 1 });
   });
 });
 
 describe("start", () => {
   it("creates a workflow", async () => {
-    const t = new Date();
-    const now = () => t;
-    const client = await createClient({ now });
+    const t = new Date("2011-10-05T14:48:00.000Z");
+    const client = await createClient({ now: () => t });
     const created = await client.start("workflow-1", "function-1", "input-1");
     expect(created).toBeTruthy();
-    const doc = insertOne.mock.calls[0][0];
-    expect(doc.id).toBe("workflow-1");
-    expect(doc.functionName).toBe("function-1");
-    expect(doc.input).toBe("input-1");
-    expect(doc.status).toBe("idle");
-    expect(doc.createdAt).toBe(t);
+
+    expect(insertOne.mock.calls[0][0]).toEqual({
+      id: "workflow-1",
+      functionName: "function-1",
+      input: "input-1",
+      status: "idle",
+      createdAt: t,
+    });
   });
 
   it("returns false if 'id' already exists", async () => {
@@ -49,9 +63,18 @@ describe("start", () => {
       };
     });
 
-    const client = await createClient();
+    const t = new Date("2011-10-05T14:48:00.000Z");
+    const client = await createClient({ now: () => t });
     const created = await client.start("workflow-1", "function-1", "input-1");
     expect(created).toBeFalsy();
+
+    expect(insertOne.mock.calls[0][0]).toEqual({
+      id: "workflow-1",
+      functionName: "function-1",
+      input: "input-1",
+      status: "idle",
+      createdAt: t,
+    });
   });
 
   it("fails if insert fails", async () => {
@@ -59,8 +82,65 @@ describe("start", () => {
       throw new Error("test");
     });
 
-    const client = await createClient();
+    const t = new Date("2011-10-05T14:48:00.000Z");
+    const client = await createClient({ now: () => t });
     const p = client.start("workflow-1", "function-1", "input-1");
     await expect(p).rejects.toThrow("test");
+
+    expect(insertOne.mock.calls[0][0]).toEqual({
+      id: "workflow-1",
+      functionName: "function-1",
+      input: "input-1",
+      status: "idle",
+      createdAt: t,
+    });
+  });
+});
+
+describe("wait", () => {
+  it("tries n times to find a matching workflow", async () => {
+    findOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ status: "finished" });
+
+    const client = await createClient();
+    const status = await client.wait("workflow-1", ["finished"], 2, 10);
+    expect(status).toBe("finished");
+
+    for (let i = 0; i < 2; i++) {
+      expect(findOne.mock.calls[i]).toEqual([
+        {
+          id: "workflow-1",
+          status: { $in: ["finished"] },
+        },
+        {
+          projection: {
+            _id: 0,
+            status: 1,
+          },
+        },
+      ]);
+    }
+
+    expect(goSleep).toHaveBeenCalledWith(10);
+  });
+
+  it("returns undefined when it can't find the workflow", async () => {
+    const client = await createClient();
+    const status = await client.wait("workflow-1", ["finished"], 1, 10);
+    expect(status).toBeUndefined();
+
+    expect(findOne.mock.calls[0]).toEqual([
+      {
+        id: "workflow-1",
+        status: { $in: ["finished"] },
+      },
+      {
+        projection: {
+          _id: 0,
+          status: 1,
+        },
+      },
+    ]);
   });
 });
