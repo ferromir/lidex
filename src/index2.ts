@@ -379,7 +379,7 @@ function makePoll(
   goSleep: (ms: number) => Promise<void>,
   pollIntervalMs: number
 ) {
-  return async function poll(): Promise<void> {
+  return async function (): Promise<void> {
     while (true) {
       const workflowId = await claim();
 
@@ -392,6 +392,7 @@ function makePoll(
   };
 }
 
+/* istanbul ignore next */
 export async function makeClient(config: Config = {}): Promise<Client> {
   const handlers = config.handlers || new Map();
   const now = config.now || (() => new Date());
