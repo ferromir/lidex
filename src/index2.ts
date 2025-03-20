@@ -2,6 +2,10 @@ import { Collection, MongoClient } from "mongodb";
 import goSleep from "sleep-promise";
 
 const COLL_NAME = "lidexworkflows";
+const DEFAULT_MAX_FAILURES = 3;
+const DEFAULT_TIMEOUT_MS = 300_000; // 5m
+const DEFAULT_POLL_MS = 5_000; // 5s
+const DEFAULT_MONGO_URL = "mongodb://localhost:27017/lidex";
 const ERROR_NAME = "LidexError";
 const MONGO_ERROR_NAME = "MongoServerError";
 const MONGO_ERROR_CODE = 11000;
@@ -30,7 +34,7 @@ export interface Client {
   /**
    * It starts a workflow.
    * @param id The id of the workflow.
-   * @param handler The handler of the workflow.
+   * @param handler The handler name of the workflow.
    * @param input The input of the workflow, it must be serializable into JSON.
    * @returns True if the workflow is created, false if the workflow already existed.
    */
@@ -46,24 +50,6 @@ export interface Client {
   poll(): Promise<void>;
 }
 
-export interface Config {
-  handlers: Map<string, Handler>;
-  now: () => Date;
-  mongoUrl: string;
-  maxFailures: number;
-  timeoutIntervalMs: number;
-  pollIntervalMs: number;
-}
-
-class LidexError extends Error {
-  name: string;
-
-  constructor(message: string) {
-    super(message);
-    this.name = ERROR_NAME;
-  }
-}
-
 export interface Workflow {
   id: string;
   handler: string;
@@ -75,6 +61,24 @@ export interface Workflow {
   naps?: { [key: string]: Date };
   failures?: number;
   lastError?: string;
+}
+
+export interface Config {
+  handlers?: Map<string, Handler>;
+  now?: () => Date;
+  mongoUrl?: string;
+  maxFailures?: number;
+  timeoutIntervalMs?: number;
+  pollIntervalMs?: number;
+}
+
+class LidexError extends Error {
+  name: string;
+
+  constructor(message: string) {
+    super(message);
+    this.name = ERROR_NAME;
+  }
 }
 
 function makeClaim(
@@ -388,14 +392,13 @@ function makePoll(
   };
 }
 
-export async function makeclient(
-  handlers: Map<string, Handler>,
-  now: () => Date,
-  mongoUrl: string,
-  maxFailures: number,
-  timeoutIntervalMs: number,
-  pollIntervalMs: number
-): Promise<Client> {
+export async function makeClient(config: Config = {}): Promise<Client> {
+  const handlers = config.handlers || new Map();
+  const now = config.now || (() => new Date());
+  const mongoUrl = config.mongoUrl || DEFAULT_MONGO_URL;
+  const maxFailures = config.maxFailures || DEFAULT_MAX_FAILURES;
+  const timeoutIntervalMs = config.timeoutIntervalMs || DEFAULT_TIMEOUT_MS;
+  const pollIntervalMs = config.pollIntervalMs || DEFAULT_POLL_MS;
   const mongo = new MongoClient(mongoUrl);
   const db = mongo.db();
   const workflows = db.collection<Workflow>(COLL_NAME);
