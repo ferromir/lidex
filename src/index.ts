@@ -24,7 +24,20 @@ export interface Context {
    * @param fn The function to be executed.
    */
   step(id: string, fn: () => Promise<unknown>): Promise<unknown>;
+
+  /**
+   * Puts the workflow to sleep.
+   * @param id The id of the nap.
+   * @param ms The amount of milliseconds to sleep.
+   */
   sleep(id: string, ms: number): Promise<void>;
+
+  /**
+   * Starts a new workflow.
+   * @param id The id of the workflow.
+   * @param handler The handler name to execute the workflow.
+   * @param input The input to the workflow.
+   */
   start(id: string, handler: string, input: unknown): Promise<boolean>;
 }
 
@@ -36,10 +49,19 @@ export interface Client {
    * @param id The id of the workflow.
    * @param handler The handler name of the workflow.
    * @param input The input of the workflow, it must be serializable into JSON.
-   * @returns True if the workflow is created, false if the workflow already existed.
+   * @returns True if the workflow is created, false if the workflow already
+   * existed.
    */
   start(id: string, handler: string, input: unknown): Promise<boolean>;
 
+  /**
+   * Returns a matching workflow status if found, it retries for the specified
+   * amount of times and it pauses in between.
+   * @param id The id of workflow.
+   * @param status A list of status to match.
+   * @param times Amount of retries.
+   * @param ms Amoung of milliseconds to wait between retries.
+   */
   wait(
     id: string,
     status: Status[],
@@ -47,6 +69,9 @@ export interface Client {
     ms: number
   ): Promise<Status | undefined>;
 
+  /**
+   * It polls continuously the database for workflows to run.
+   */
   poll(): Promise<void>;
 }
 
