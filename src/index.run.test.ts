@@ -1,5 +1,5 @@
 import { Collection } from "mongodb";
-import { Workflow, forInternalTesting } from "./index2";
+import { Workflow, forInternalTesting } from ".";
 import { mock } from "jest-mock-extended";
 
 const { makeRun } = forInternalTesting;

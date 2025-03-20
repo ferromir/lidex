@@ -1,4 +1,4 @@
-import { forInternalTesting } from "./index2";
+import { forInternalTesting } from ".";
 
 const { makePoll } = forInternalTesting;
 
