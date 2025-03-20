@@ -13,29 +13,28 @@ const ABORTED = "aborted";
 
 export type Status = "idle" | "running" | "failed" | "finished" | "aborted";
 
-export interface Workflow {
-  id: string;
-  functionName: string;
-  input: unknown;
-  status: Status;
-  createdAt: Date;
-  timeoutAt?: Date;
-  actions?: { [key: string]: unknown };
-  naps?: { [key: string]: Date };
-  failures?: number;
-  lastError?: string;
-}
-
 export interface Context {
-  act(id: string, fn: () => Promise<unknown>): Promise<unknown>;
+  /**
+   * Executes a step.
+   * @param id The id of the step.
+   * @param fn The function to be executed.
+   */
+  step(id: string, fn: () => Promise<unknown>): Promise<unknown>;
   sleep(id: string, ms: number): Promise<void>;
-  start(id: string, functionName: string, input: unknown): Promise<boolean>;
+  start(id: string, handler: string, input: unknown): Promise<boolean>;
 }
 
-export type WorkflowFn = (ctx: Context, input: unknown) => Promise<void>;
+export type Handler = (ctx: Context, input: unknown) => Promise<void>;
 
 export interface Client {
-  start<T>(id: string, functionName: string, input: T): Promise<boolean>;
+  /**
+   * It starts a workflow.
+   * @param id The id of the workflow.
+   * @param handler The handler of the workflow.
+   * @param input The input of the workflow, it must be serializable into JSON.
+   * @returns True if the workflow is created, false if the workflow already existed.
+   */
+  start(id: string, handler: string, input: unknown): Promise<boolean>;
 
   wait(
     id: string,
@@ -48,7 +47,7 @@ export interface Client {
 }
 
 export interface Config {
-  functions: Map<string, WorkflowFn>;
+  handlers: Map<string, Handler>;
   now: () => Date;
   mongoUrl: string;
   maxFailures: number;
@@ -56,13 +55,26 @@ export interface Config {
   pollIntervalMs: number;
 }
 
-export class LidexError extends Error {
+class LidexError extends Error {
   name: string;
 
   constructor(message: string) {
     super(message);
     this.name = ERROR_NAME;
   }
+}
+
+export interface Workflow {
+  id: string;
+  handler: string;
+  input: unknown;
+  status: Status;
+  createdAt: Date;
+  timeoutAt?: Date;
+  steps?: { [key: string]: unknown };
+  naps?: { [key: string]: Date };
+  failures?: number;
+  lastError?: string;
 }
 
 function makeClaim(
@@ -102,7 +114,7 @@ function makeClaim(
   };
 }
 
-function makeMakeAct(
+function makeMakeStep(
   workflows: Collection<Workflow>,
   timeoutIntervalMs: number,
   now: () => Date
@@ -128,8 +140,8 @@ function makeMakeAct(
         throw new LidexError(`workflow not found: ${workflowId}`);
       }
 
-      if (workflow.actions && workflow.actions[id] != undefined) {
-        return workflow.actions[id];
+      if (workflow.steps && workflow.steps[id] != undefined) {
+        return workflow.steps[id];
       }
 
       const output = await fn();
@@ -140,7 +152,7 @@ function makeMakeAct(
           id: workflowId,
         },
         {
-          $set: { [`actions.${id}`]: output },
+          $set: { [`steps.${id}`]: output },
           timeoutAt,
         }
       );
@@ -208,15 +220,15 @@ function makeMakeSleep(
 
 function makeRun(
   workflows: Collection<Workflow>,
-  functions: Map<string, WorkflowFn>,
-  makeAct: (
+  handlers: Map<string, Handler>,
+  makeStep: (
     workflowId: string
   ) => (actionId: string, fn: () => Promise<unknown>) => Promise<unknown>,
   makeSleep: (
     workflowId: string
   ) => (napId: string, ms: number) => Promise<void>,
   now: () => Date,
-  start: (id: string, functionName: string, input: unknown) => Promise<boolean>,
+  start: (id: string, handler: string, input: unknown) => Promise<boolean>,
   maxFailures: number,
   timeoutIntervalMs: number
 ) {
@@ -228,7 +240,7 @@ function makeRun(
       {
         projection: {
           _id: 0,
-          functionName: 1,
+          handler: 1,
           input: 1,
           failures: 1,
         },
@@ -239,14 +251,14 @@ function makeRun(
       throw new LidexError(`workflow not found: ${workflowId}`);
     }
 
-    const fn = functions.get(workflow.functionName);
+    const fn = handlers.get(workflow.handler);
 
     if (!fn) {
-      throw new LidexError(`function not found: ${workflow.functionName}`);
+      throw new LidexError(`function not found: ${workflow.handler}`);
     }
 
     const ctx: Context = {
-      act: makeAct(workflowId),
+      step: makeStep(workflowId),
       sleep: makeSleep(workflowId),
       start,
     };
@@ -296,13 +308,13 @@ function makeRun(
 function makeStart(workflows: Collection<Workflow>, now: () => Date) {
   return async function (
     id: string,
-    functionName: string,
+    handler: string,
     input: unknown
   ): Promise<boolean> {
     try {
       await workflows.insertOne({
         id,
-        functionName,
+        handler,
         input,
         status: IDLE,
         createdAt: now(),
@@ -376,8 +388,8 @@ function makePoll(
   };
 }
 
-export async function createClient(
-  functions: Map<string, WorkflowFn>,
+export async function makeclient(
+  handlers: Map<string, Handler>,
   now: () => Date,
   mongoUrl: string,
   maxFailures: number,
@@ -393,13 +405,13 @@ export async function createClient(
   const start = makeStart(workflows, now);
   const wait = makeWait(workflows, goSleep);
   const claim = makeClaim(workflows, now, timeoutIntervalMs);
-  const makeAct = makeMakeAct(workflows, timeoutIntervalMs, now);
+  const makeStep = makeMakeStep(workflows, timeoutIntervalMs, now);
   const makeSleep = makeMakeSleep(workflows, timeoutIntervalMs, goSleep, now);
 
   const run = makeRun(
     workflows,
-    functions,
-    makeAct,
+    handlers,
+    makeStep,
     makeSleep,
     now,
     start,
@@ -413,7 +425,7 @@ export async function createClient(
 
 export const forInternalTesting = {
   makeClaim,
-  makeMakeAct,
+  makeMakeStep,
   makeMakeSleep,
   makeRun,
   makeStart,

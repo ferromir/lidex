@@ -1,8 +1,8 @@
 import { Collection, ObjectId } from "mongodb";
-import { forInternalTesting, Workflow } from "./index2";
+import { Client, forInternalTesting, Workflow } from "./index2";
 import { mock } from "jest-mock-extended";
 
-const { makeClaim, makeMakeAct } = forInternalTesting;
+const { makeClaim, makeMakeStep } = forInternalTesting;
 
 beforeEach(() => {
   jest.resetAllMocks();
@@ -18,7 +18,7 @@ describe("claim", () => {
     workflows.findOneAndUpdate.mockResolvedValue({
       _id: new ObjectId(),
       id: "workflow-1",
-      functionName: "function-1",
+      handler: "handler-1",
       status: "idle",
       input: "input-1",
       createdAt: now(),
@@ -29,16 +29,16 @@ describe("claim", () => {
   });
 });
 
-describe("act", () => {
+describe("step", () => {
   it("should fail if workflow is not found", async () => {
     const now = () => new Date("2011-10-05T14:48:00.000Z");
     const timeoutIntervalMs = 1_000;
     const workflows = mock<Collection<Workflow>>();
-    const makeAct = makeMakeAct(workflows, timeoutIntervalMs, now);
-    const act = makeAct("workflow-1");
+    const makeStep = makeMakeStep(workflows, timeoutIntervalMs, now);
+    const step = makeStep("workflow-1");
     const fn = () => Promise.resolve();
 
-    await expect(act("action-1", fn)).rejects.toThrow(
+    await expect(step("action-1", fn)).rejects.toThrow(
       "workflow not found: workflow-1"
     );
   });
