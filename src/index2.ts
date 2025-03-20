@@ -258,7 +258,7 @@ function makeRun(
     const fn = handlers.get(workflow.handler);
 
     if (!fn) {
-      throw new LidexError(`function not found: ${workflow.handler}`);
+      throw new LidexError(`handler not found: ${workflow.handler}`);
     }
 
     const ctx: Context = {
