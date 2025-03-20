@@ -1,7 +1,7 @@
 import { Collection, MongoClient } from "mongodb";
 import goSleep from "sleep-promise";
 
-const COLL_NAME = "workflows";
+const COLL_NAME = "lidexworkflows";
 const ERROR_NAME = "LidexError";
 const MONGO_ERROR_NAME = "MongoServerError";
 const MONGO_ERROR_CODE = 11000;
