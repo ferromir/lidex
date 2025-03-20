@@ -1,7 +1,7 @@
 import { Collection, MongoClient } from "mongodb";
 import goSleep from "sleep-promise";
 
-const COLL_NAME = "lidexworkflows";
+const COLL_NAME = "workflows";
 const DEFAULT_MAX_FAILURES = 3;
 const DEFAULT_TIMEOUT_MS = 300_000; // 5m
 const DEFAULT_POLL_MS = 5_000; // 5s
