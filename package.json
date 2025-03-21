@@ -1,6 +1,6 @@
 {
   "name": "lidex",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -12,9 +12,13 @@
     "invincible",
     "workflow"
   ],
-  "author": "Fernando Romero",
+  "author": "Fernando Romero <fernandojhoel@gmail.com>",
   "license": "MIT",
   "description": "lightweight durable execution library",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ferromir/lidex.git"
+  },
   "devDependencies": {
     "@types/jest": "^29.5.14",
     "@types/node": "^22.13.10",
