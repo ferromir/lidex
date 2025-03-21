@@ -16,13 +16,15 @@ const ABORTED = "aborted";
 
 export type Status = "idle" | "running" | "failed" | "finished" | "aborted";
 
+export class Ctx {}
+
 export interface Context {
   /**
    * Executes a step.
    * @param id The id of the step.
    * @param fn The function to be executed.
    */
-  step(id: string, fn: () => Promise<unknown>): Promise<unknown>;
+  step<T>(id: string, fn: () => Promise<T>): Promise<T>;
 
   /**
    * Puts the workflow to sleep.
@@ -37,10 +39,10 @@ export interface Context {
    * @param handler The handler name to execute the workflow.
    * @param input The input to the workflow.
    */
-  start(id: string, handler: string, input: unknown): Promise<boolean>;
+  start<T>(id: string, handler: string, input: T): Promise<boolean>;
 }
 
-export type Handler = (ctx: Context, input: unknown) => Promise<void>;
+export type Handler = (ctx: Context, input: any) => Promise<void>;
 
 export interface Client {
   /**
@@ -51,7 +53,7 @@ export interface Client {
    * @returns True if the workflow is created, false if the workflow already
    * existed.
    */
-  start(id: string, handler: string, input: unknown): Promise<boolean>;
+  start<T>(id: string, handler: string, input: T): Promise<boolean>;
 
   /**
    * Returns a matching workflow status if found, it retries for the specified
@@ -77,11 +79,11 @@ export interface Client {
 export interface Workflow {
   id: string;
   handler: string;
-  input: unknown;
+  input: any;
   status: Status;
   createdAt: Date;
   timeoutAt?: Date;
-  steps?: { [key: string]: unknown };
+  steps?: { [key: string]: any };
   naps?: { [key: string]: Date };
   failures?: number;
   lastError?: string;
@@ -148,10 +150,10 @@ function makeMakeStep(
   now: () => Date
 ) {
   return function (workflowId: string) {
-    return async function (
+    return async function <T>(
       id: string,
-      fn: () => Promise<unknown>
-    ): Promise<unknown> {
+      fn: () => Promise<any>
+    ): Promise<any> {
       const workflow = await workflows.findOne(
         {
           id: workflowId,
@@ -185,7 +187,7 @@ function makeMakeStep(
         }
       );
 
-      return output;
+      return output as T;
     };
   };
 }
@@ -251,12 +253,12 @@ function makeRun(
   handlers: Map<string, Handler>,
   makeStep: (
     workflowId: string
-  ) => (actionId: string, fn: () => Promise<unknown>) => Promise<unknown>,
+  ) => (actionId: string, fn: () => Promise<any>) => Promise<any>,
   makeSleep: (
     workflowId: string
   ) => (napId: string, ms: number) => Promise<void>,
   now: () => Date,
-  start: (id: string, handler: string, input: unknown) => Promise<boolean>,
+  start: (id: string, handler: string, input: any) => Promise<boolean>,
   maxFailures: number,
   timeoutIntervalMs: number
 ) {
@@ -337,7 +339,7 @@ function makeStart(workflows: Collection<Workflow>, now: () => Date) {
   return async function (
     id: string,
     handler: string,
-    input: unknown
+    input: any
   ): Promise<boolean> {
     try {
       await workflows.insertOne({

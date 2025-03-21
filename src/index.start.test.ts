@@ -7,7 +7,7 @@ const { makeStart } = forInternalTesting;
 describe("start", () => {
   it("should create a workflow", async () => {
     const workflows = mock<Collection<Workflow>>();
-    const now = jest.fn();
+    const now = () => new Date("2011-10-05T14:48:00.000Z");
     const start = makeStart(workflows, now);
     const created = await start("workflow-1", "handler-1", "input-1");
     expect(created).toBeTruthy();
@@ -15,7 +15,7 @@ describe("start", () => {
 
   it("should ignore if it is already created", async () => {
     const workflows = mock<Collection<Workflow>>();
-    const now = jest.fn();
+    const now = () => new Date("2011-10-05T14:48:00.000Z");
     const start = makeStart(workflows, now);
 
     workflows.insertOne.mockImplementation(() => {
@@ -28,7 +28,7 @@ describe("start", () => {
 
   it("should fail if insert fails", async () => {
     const workflows = mock<Collection<Workflow>>();
-    const now = jest.fn();
+    const now = () => new Date("2011-10-05T14:48:00.000Z");
     const start = makeStart(workflows, now);
 
     workflows.insertOne.mockImplementation(() => {
