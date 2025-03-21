@@ -70,7 +70,8 @@ export class InvoiceService {
       return;
     }
 
-    for (let i = 0; i < 10; i++) {
+    // Try up to 3 times to collect the payment, with 24h in between attempts.
+    for (let i = 0; i < 3; i++) {
       const success = await ctx.step(`capture-payment-${i}`, async () => {
         return await this.paymentApi.capture(
           account.paymentToken,
