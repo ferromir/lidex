@@ -12,7 +12,12 @@ jest.mock("mongodb", () => ({
 
 describe("createClient", () => {
   it("creates a Client", async () => {
-    const client = await makeClient();
+    const client = await makeClient({
+      handlers: new Map(),
+      now: jest.fn(),
+      mongoUrl: "mongodb://localhost:27017/lidex",
+    });
+
     expect(client).toBeDefined();
   });
 });

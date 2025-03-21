@@ -60,7 +60,7 @@ export interface Client {
    * @param id The id of workflow.
    * @param status A list of status to match.
    * @param times Amount of retries.
-   * @param ms Amoung of milliseconds to wait between retries.
+   * @param ms Amount of milliseconds to wait between retries.
    */
   wait(
     id: string,
@@ -89,9 +89,9 @@ export interface Workflow {
 }
 
 export interface Config {
-  handlers?: Map<string, Handler>;
-  now?: () => Date;
-  mongoUrl?: string;
+  handlers: Map<string, Handler>;
+  now: () => Date;
+  mongoUrl: string;
   maxFailures?: number;
   timeoutIntervalMs?: number;
   pollIntervalMs?: number;
@@ -417,13 +417,8 @@ function makePoll(
   };
 }
 
-export async function makeClient(config: Config = {}): Promise<Client> {
-  // The part after '||' is tricky to test, not worth it, exclude.
-  /* istanbul ignore next */
-  const now = config.now || (() => new Date());
-
-  const handlers = config.handlers || new Map();
-  const mongoUrl = config.mongoUrl || DEFAULT_MONGO_URL;
+export async function makeClient(config: Config): Promise<Client> {
+  const { now, handlers, mongoUrl } = config;
   const maxFailures = config.maxFailures || DEFAULT_MAX_FAILURES;
   const timeoutIntervalMs = config.timeoutIntervalMs || DEFAULT_TIMEOUT_MS;
   const pollIntervalMs = config.pollIntervalMs || DEFAULT_POLL_MS;
