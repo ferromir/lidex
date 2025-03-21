@@ -167,3 +167,6 @@ It turns the app into a worker. It starts polling workflows that are ready to be
 
 ### The wait function
 A function that allows you to wait until a workflow matches a given status. It is useful for short-lived workflows that will either fail or succeed quickly and allows apps to return synchronous responses.
+
+## TODO
+* Add a "how it works" section.
