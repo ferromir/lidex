@@ -417,10 +417,12 @@ function makePoll(
   };
 }
 
-/* istanbul ignore next */
 export async function makeClient(config: Config = {}): Promise<Client> {
-  const handlers = config.handlers || new Map();
+  // The part after '||' is tricky to test, not worth it, exclude.
+  /* istanbul ignore next */
   const now = config.now || (() => new Date());
+
+  const handlers = config.handlers || new Map();
   const mongoUrl = config.mongoUrl || DEFAULT_MONGO_URL;
   const maxFailures = config.maxFailures || DEFAULT_MAX_FAILURES;
   const timeoutIntervalMs = config.timeoutIntervalMs || DEFAULT_TIMEOUT_MS;
