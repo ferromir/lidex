@@ -183,8 +183,10 @@ function makeMakeStep(
           id: workflowId,
         },
         {
-          $set: { [`steps.${id}`]: output },
-          timeoutAt,
+          $set: {
+            [`steps.${id}`]: output,
+            timeoutAt,
+          },
         }
       );
 
