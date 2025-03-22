@@ -14,7 +14,7 @@ describe("createClient", () => {
   it("creates a Client", async () => {
     const client = await makeClient({
       handlers: new Map(),
-      now: jest.fn(),
+      now: () => new Date("2011-10-05T14:48:00.000Z"),
       mongoUrl: "mongodb://localhost:27017/lidex",
     });
 
