@@ -111,6 +111,8 @@ app.listen(port, () => {
 await client.poll();
 ```
 
+Full example [here](https://github.com/ferromir/durable-execution-node)
+
 ## The Context functions
 
 ### The step function
