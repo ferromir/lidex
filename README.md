@@ -105,7 +105,7 @@ app.post("/invoices/:invoiceId/collect", async (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`durex app listening on port ${port}`);
+  console.log(`invoice service listening on port ${port}`);
 });
 
 await client.poll();
