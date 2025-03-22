@@ -44,7 +44,6 @@ async collectPayment(ctx: Context, invoiceId: string): Promise<void> {
   }
 
   const account = await ctx.step("find-account", async () => {
-    console.log("executing find-account...");
     return await this.accountRepo.find(invoice.accountId);
   });
 
