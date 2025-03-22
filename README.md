@@ -30,88 +30,51 @@ npm install lidex
 
 Writting a workflow.
 ```TypeScript
-import { AccountRepo } from "./account-repo.ts";
-import { InvoiceRepo } from "./invoice-repo.ts";
-import { PaymentApi } from "./payment-api.ts";
-import type { Context } from "lidex";
+async collectPayment(ctx: Context, invoiceId: string): Promise<void> {
+  const invoice = await ctx.step("find-invoice", async () => {
+    return await this.invoiceRepo.find(invoiceId);
+  });
 
-export class InvoiceService {
-  accountRepo: AccountRepo;
-  invoiceRepo: InvoiceRepo;
-  paymentApi: PaymentApi;
-
-  constructor(
-    accountRepo: AccountRepo,
-    invoiceRepo: InvoiceRepo,
-    paymentApi: PaymentApi,
-  ) {
-    this.accountRepo = accountRepo;
-    this.invoiceRepo = invoiceRepo;
-    this.paymentApi = paymentApi;
+  if (!invoice) {
+    return;
   }
 
-  // This is the workflow handler, which is just a regular function that
-  // receives a context and an input.
-  async collectPayment(ctx: Context, invoiceId: string): Promise<void> {
-    const invoice = await ctx.step("find-invoice", async () => {
-      return await this.invoiceRepo.find(invoiceId);
+  const account = await ctx.step("find-account", async () => {
+    console.log("executing find-account...");
+    return await this.accountRepo.find(invoice.accountId);
+  });
+
+  if (!account) {
+    return;
+  }
+
+  for (let i = 0; i < 3; i++) {
+    const success = await ctx.step(`capture-payment-${i}`, async () => {
+      return await this.paymentApi.capture(
+        account.paymentToken,
+        invoice.amount,
+      );
     });
 
-    if (!invoice) {
-      return;
-    }
-
-    const account = await ctx.step("find-account", async () => {
-      console.log("executing find-account...");
-      return await this.accountRepo.find(invoice.accountId);
-    });
-
-    if (!account) {
-      return;
-    }
-
-    // Try up to 3 times to collect the payment, with 24h in between attempts.
-    for (let i = 0; i < 3; i++) {
-      const success = await ctx.step(`capture-payment-${i}`, async () => {
-        return await this.paymentApi.capture(
-          account.paymentToken,
-          invoice.amount,
-        );
+    if (success) {
+      await ctx.step("mark-invoice-as-paid", async () => {
+        await this.invoiceRepo.markAsPaid(invoice.id);
       });
 
-      if (success) {
-        await ctx.step("mark-invoice-as-paid", async () => {
-          await this.invoiceRepo.markAsPaid(invoice.id);
-        });
-
-        return;
-      }
-
-      await ctx.sleep(`sleep-${i}`, 86_400_000 ); // 24h
+      return;
     }
 
-    // Start another workflow to block the account
-    await ctx.start(`block-account-${account.id}`, "block-account", account.id);
+    await ctx.sleep(`sleep-${i}`, 86_400_000 ); // 24h
   }
+
+  await ctx.start(`block-account-${account.id}`, "block-account", account.id);
 }
+
 ```
 
 Creating a client and start polling workflows.
 ```TypeScript
-import express from "express";
-import { PaymentApi } from "./payment-api.ts";
-import { AccountRepo } from "./account-repo.ts";
-import { InvoiceRepo } from "./invoice-repo.ts";
-import { InvoiceService } from "./invoice-service.ts";
-import { makeClient } from "lidex";
-
-const app = express();
-app.use(express.json());
-const port = 3000;
-const accountRepo = new AccountRepo();
-const invoiceRepo = new InvoiceRepo();
-const paymentApi = new PaymentApi();
-const invoiceService = new InvoiceService(accountRepo, invoiceRepo, paymentApi);
+// Express and services setup omitted...
 const handlers = new Map();
 
 handlers.set(
@@ -168,5 +131,13 @@ It turns the app into a worker. It starts polling workflows that are ready to be
 ### The wait function
 A function that allows you to wait until a workflow matches a given status. It is useful for short-lived workflows that will either fail or succeed quickly and allows apps to return synchronous responses.
 
-## TODO
-* Add a "how it works" section.
+## Configuration object
+This is the configuration required to create a client.
+| Property          | Default   | Description |
+--------------------|-----------|--------------
+| handlers          |           | A map where the key is the handler identifier and the value is the the handler function. This is how Lidex know during runtime what function should be used to run the workflow. |
+| now               |           | A function that returns current time. |
+| mongoUrl          |           | The MongoDB url. |
+| maxFailures       | 3         | The max amount of time a workflow can fail before changing it's status to "aborted". |
+| timeoutIntervalMs | 5 minutes | The amount of milliseconds for timeouts. After timing out, a running workflow is considered ready to be picked-up by any other instance polling workflows. |
+| pollIntervalMs    | 5 seconds | It defines the length of the pause between poll calls to the database when last call was empty. |

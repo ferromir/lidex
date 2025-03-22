@@ -16,8 +16,6 @@ const ABORTED = "aborted";
 
 export type Status = "idle" | "running" | "failed" | "finished" | "aborted";
 
-export class Ctx {}
-
 export interface Context {
   /**
    * Executes a step.
@@ -76,6 +74,9 @@ export interface Client {
   poll(): Promise<void>;
 }
 
+/**
+ * For internal usage only.
+ */
 export interface Workflow {
   id: string;
   handler: string;
@@ -258,7 +259,7 @@ function makeRun(
     workflowId: string
   ) => (napId: string, ms: number) => Promise<void>,
   now: () => Date,
-  start: (id: string, handler: string, input: any) => Promise<boolean>,
+  start: <T>(id: string, handler: string, input: T) => Promise<boolean>,
   maxFailures: number,
   timeoutIntervalMs: number
 ) {
@@ -336,10 +337,10 @@ function makeRun(
 }
 
 function makeStart(workflows: Collection<Workflow>, now: () => Date) {
-  return async function (
+  return async function <T>(
     id: string,
     handler: string,
-    input: any
+    input: T
   ): Promise<boolean> {
     try {
       await workflows.insertOne({
@@ -418,6 +419,12 @@ function makePoll(
   };
 }
 
+/**
+ * Creates a client based on the given configuration. If no configuration is
+ * provided, then the library defaults are used.
+ * @param config The configutarion object.
+ * @returns The client instance.
+ */
 export async function makeClient(config: Config): Promise<Client> {
   const { now, handlers, mongoUrl } = config;
   const maxFailures = config.maxFailures || DEFAULT_MAX_FAILURES;
