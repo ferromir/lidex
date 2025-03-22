@@ -2,18 +2,18 @@
 
 ![Build and test](https://github.com/ferromir/lidex/actions/workflows/build-and-test.yml/badge.svg)
 
-Lidex is a lightweight durable execution library who allows you to write and execute workflows.
+Lidex is a lightweight durable execution library that allows you to write and execute workflows.
 
 ## Features
 
 ### Lightweight
-No addition services or required. Your Node.js app can start workflows and also execute them.
+No additional services are required. Your Node.js app can start workflows and also execute them.
 
 ### Scalable
 Scale horizontally by adding simply more instances of your service so you can process more workflows.
 
 ### Powered by MongoDB
-Workflow state is stored in MongoDB. If your application already uses MongoDB you don't even have to an additional database to your infrastructure.
+Workflow state is stored in MongoDB. If your application already uses MongoDB you don't even have to add additional database infrastructure.
 
 ### Minimalistic
 It adds a minimal of features to implement a realiable durable execution solution. It implements start, step and sleep only.
@@ -115,10 +115,10 @@ Every non-deterministic operation in the workflow should be executed within a st
 When a function is executed, its result is stored in the database. If the server restarts, the workflow is resumed without executing these steps and continues until the workflow is finished.
 
 ### The sleep function
-Sleep is a special kind of step, one imporant difference is that id and the wake-up time are stored before putting the workflow to sleep. If the server crashes, the workflow is not resumed until after the wake-up time.
+Sleep is a special kind of step, one important difference is that the id and the wake-up time are stored before putting the workflow to sleep. If the server crashes, the workflow is not resumed until after the wake-up time.
 
 ### The start function
-Is just a conveniently place proxy to the client's start function. It starts a new workflow which holds no relationship to the one currently running. There is no concept of parent/child workflows in Lidex.
+Is just a conveniently placed proxy to the client's start function. It starts a new workflow which holds no relationship to the one currently running. There is no concept of parent/child workflows in Lidex.
 
 ## The Client functions
 
