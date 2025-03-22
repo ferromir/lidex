@@ -13,8 +13,9 @@ describe("poll", () => {
 
     const pollIntervalMs = 1000;
     const poll = makePoll(claim, run, goSleep, pollIntervalMs);
+    const shouldStop = () => false;
 
-    await expect(poll()).rejects.toThrow("sleeping");
+    await expect(poll(shouldStop)).rejects.toThrow("sleeping");
   });
 
   it("runs the claimed workflow", async () => {
@@ -27,7 +28,8 @@ describe("poll", () => {
 
     const pollIntervalMs = 1000;
     const poll = makePoll(claim, run, goSleep, pollIntervalMs);
+    const shouldStop = () => false;
 
-    await expect(poll()).rejects.toThrow("sleeping");
+    await expect(poll(shouldStop)).rejects.toThrow("sleeping");
   });
 });

@@ -71,7 +71,7 @@ export interface Client {
   /**
    * It polls continuously the database for workflows to run.
    */
-  poll(): Promise<void>;
+  poll(shouldStop: () => boolean): Promise<void>;
 }
 
 /**
@@ -406,8 +406,8 @@ function makePoll(
   goSleep: (ms: number) => Promise<void>,
   pollIntervalMs: number
 ) {
-  return async function (): Promise<void> {
-    while (true) {
+  return async function (shouldStop: () => boolean): Promise<void> {
+    while (!shouldStop()) {
       const workflowId = await claim();
 
       if (workflowId) {
