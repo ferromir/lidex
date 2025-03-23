@@ -40,7 +40,7 @@ export interface Context {
   start<T>(id: string, handler: string, input: T): Promise<boolean>;
 }
 
-export type Handler = (ctx: Context, input: any) => Promise<void>;
+export type Handler = (ctx: Context, input: unknown) => Promise<void>;
 
 export interface Client {
   /**
@@ -80,11 +80,11 @@ export interface Client {
 export interface Workflow {
   id: string;
   handler: string;
-  input: any;
+  input: unknown;
   status: Status;
   createdAt: Date;
   timeoutAt?: Date;
-  steps?: { [key: string]: any };
+  steps?: { [key: string]: unknown };
   naps?: { [key: string]: Date };
   failures?: number;
   lastError?: string;
@@ -151,10 +151,7 @@ function makeMakeStep(
   now: () => Date
 ) {
   return function (workflowId: string) {
-    return async function <T>(
-      id: string,
-      fn: () => Promise<any>
-    ): Promise<any> {
+    return async function <T>(id: string, fn: () => Promise<T>): Promise<T> {
       const workflow = await workflows.findOne(
         {
           id: workflowId,
@@ -172,7 +169,7 @@ function makeMakeStep(
       }
 
       if (workflow.steps && workflow.steps[id] != undefined) {
-        return workflow.steps[id];
+        return workflow.steps[id] as T;
       }
 
       const output = await fn();
@@ -256,7 +253,7 @@ function makeRun(
   handlers: Map<string, Handler>,
   makeStep: (
     workflowId: string
-  ) => (actionId: string, fn: () => Promise<any>) => Promise<any>,
+  ) => <T>(actionId: string, fn: () => Promise<T>) => Promise<T>,
   makeSleep: (
     workflowId: string
   ) => (napId: string, ms: number) => Promise<void>,
