@@ -51,6 +51,7 @@ async collectPayment(ctx: Context, invoiceId: string): Promise<void> {
     return;
   }
 
+  // Try to capture the payment up to 3 times.
   for (let i = 0; i < 3; i++) {
     const success = await ctx.step(`capture-payment-${i}`, async () => {
       return await this.paymentApi.capture(
@@ -67,9 +68,11 @@ async collectPayment(ctx: Context, invoiceId: string): Promise<void> {
       return;
     }
 
-    await ctx.sleep(`sleep-${i}`, 86_400_000 ); // 24h
+    // Wait 24h between attempts.
+    await ctx.sleep(`sleep-${i}`, 86_400_000 );
   }
 
+  // Start the blocking workflow.
   await ctx.start(`block-account-${account.id}`, "block-account", account.id);
 }
 
