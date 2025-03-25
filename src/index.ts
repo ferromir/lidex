@@ -1,6 +1,6 @@
 const DEFAULT_MAX_FAILURES = 3;
-const DEFAULT_TIMEOUT_MS = 300_000; // 5m
-const DEFAULT_POLL_MS = 5_000; // 5s
+const DEFAULT_TIMEOUT_MS = 60_000; // 1m
+const DEFAULT_POLL_MS = 1_000; // 1s
 
 export type Status = "idle" | "running" | "failed" | "finished" | "aborted";
 

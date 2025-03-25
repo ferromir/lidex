@@ -148,7 +148,7 @@ This is the configuration required to create a client.
 | Property          | Default   | Description |
 --------------------|-----------|--------------
 | handlers          |           | A map where the key is the handler identifier and the value is the the handler function. This is how Lidex know during runtime what function should be used to run the workflow. |
-| persistence       |           | The persistence provider |
+| persistence       |           | The persistence provider. |
 | maxFailures       | 3         | The max amount of time a workflow can fail before changing it's status to "aborted". |
-| timeoutIntervalMs | 5 minutes | The amount of milliseconds for timeouts. After timing out, a running workflow is considered ready to be picked-up by any other instance polling workflows. |
-| pollIntervalMs    | 5 seconds | It defines the length of the pause between poll calls to the database when last call was empty. |
+| timeoutIntervalMs | 1 minute  | The amount of milliseconds for timeouts. After timing out, a running workflow is considered ready to be picked-up by any other instance polling workflows. |
+| pollIntervalMs    | 1 second  | It defines the length of the pause between poll calls to the database when last call was empty. |
