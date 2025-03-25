@@ -1,18 +1,8 @@
-import { Collection, MongoClient } from "mongodb";
 import goSleep from "sleep-promise";
 
-const COLL_NAME = "workflows";
 const DEFAULT_MAX_FAILURES = 3;
 const DEFAULT_TIMEOUT_MS = 300_000; // 5m
 const DEFAULT_POLL_MS = 5_000; // 5s
-const ERROR_NAME = "LidexError";
-const MONGO_ERROR_NAME = "MongoServerError";
-const MONGO_ERROR_CODE = 11000;
-const IDLE = "idle";
-const RUNNING = "running";
-const FAILED = "failed";
-const FINISHED = "finished";
-const ABORTED = "aborted";
 
 export type Status = "idle" | "running" | "failed" | "finished" | "aborted";
 
@@ -74,6 +64,9 @@ export interface Client {
   poll(shouldStop: () => boolean): Promise<void>;
 }
 
+// /**
+//  * For internal usage only.
+//  */
 // export interface Workflow {
 //   id: string;
 //   handler: string;
@@ -93,57 +86,6 @@ export interface RunData {
   failures?: number;
 }
 
-export interface Clock {
-  now(): Date;
-}
-
-export interface Sleeper {
-  goSleep(ms: number): Promise<void>;
-}
-
-// id,
-//         handler,
-//         input,
-//         status: IDLE,
-//         createdAt: now(),
-
-export interface Persistence {
-  create(workflowId: string, handler: string, input: unknown): Promise<boolean>;
-  find(workflowId: string): Promise<RunData | undefined>;
-  claim(clock: Clock, timeoutAt: Date): Promise<string | undefined>;
-
-  findByStatus(
-    workflowId: string,
-    status: Status[]
-  ): Promise<Status | undefined>;
-
-  findOutput(workflowId: string, stepId: string): Promise<unknown>;
-  findSleepUntil(workflowId: string, napId: string): Promise<Date | undefined>;
-  setAsFinished(workflowId: string): Promise<void>;
-
-  setOutput(
-    workflowId: string,
-    stepId: string,
-    output: unknown,
-    timeoutAt: Date
-  ): Promise<void>;
-
-  setSleepUntil(
-    workflowId: string,
-    napId: string,
-    sleepUntil: Date,
-    timeoutAt: Date
-  ): Promise<void>;
-
-  updateError(
-    workflowId: string,
-    status: Status,
-    timeoutAt: Date,
-    failures: number,
-    lastError: string
-  ): Promise<void>;
-}
-
 export interface Config {
   handlers: Map<string, Handler>;
   clock: Clock;
@@ -153,13 +95,44 @@ export interface Config {
   pollIntervalMs?: number;
 }
 
-class LidexError extends Error {
-  name: string;
+export interface Clock {
+  now(): Date;
+}
 
-  constructor(message: string) {
-    super(message);
-    this.name = ERROR_NAME;
-  }
+export interface Persistence {
+  insert(workflowId: string, handler: string, input: unknown): Promise<boolean>;
+  setAsRunning(timeoutAt: Date): Promise<string | undefined>;
+  findStepOutput(workflowId: string, stepId: string): Promise<unknown>;
+  findNapWakeUpAt(workflowId: string, napId: string): Promise<Date | undefined>;
+  findRunData(workflowId: string): Promise<RunData | undefined>;
+  setAsFinished(workflowId: string): Promise<void>;
+
+  findByStatus(
+    workflowId: string,
+    status: Status[]
+  ): Promise<Status | undefined>;
+
+  setError(
+    workflowId: string,
+    status: Status,
+    timeoutAt: Date,
+    failures: number,
+    lastError: string
+  ): Promise<void>;
+
+  setOutput(
+    workflowId: string,
+    stepId: string,
+    output: unknown,
+    timeoutAt: Date
+  ): Promise<void>;
+
+  setWakeUpAt(
+    workflowId: string,
+    napId: string,
+    wakeUpAt: Date,
+    timeoutAt: Date
+  ): Promise<void>;
 }
 
 function makeClaim(
@@ -170,7 +143,7 @@ function makeClaim(
   return async function (): Promise<string | undefined> {
     const t = clock.now();
     const timeoutAt = new Date(t.getTime() + timeoutIntervalMs);
-    return persistence.claimWorkflow(clock, timeoutAt);
+    return await persistence.setAsRunning(timeoutAt);
   };
 }
 
@@ -184,7 +157,7 @@ function makeMakeStep(
       stepId: string,
       fn: () => Promise<T>
     ): Promise<T> {
-      let output = await persistence.findOutput(workflowId, stepId);
+      let output = await persistence.findStepOutput(workflowId, stepId);
 
       if (output != undefined) {
         return output as T;
@@ -203,27 +176,27 @@ function makeMakeSleep(
   persistence: Persistence,
   clock: Clock,
   timeoutIntervalMs: number,
-  sleeper: Sleeper
+  goSleep: (ms: number) => Promise<void>
 ) {
   return function (workflowId: string) {
     return async function (napId: string, ms: number): Promise<void> {
-      let sleepUntil = await persistence.findSleepUntil(workflowId, napId);
-      const now = clock.now();
+      let wakeUpAt = await persistence.findNapWakeUpAt(workflowId, napId);
+      const t = clock.now();
 
-      if (sleepUntil != undefined) {
-        const remainingMs = sleepUntil.getTime() - now.getTime();
+      if (wakeUpAt) {
+        const remainingMs = wakeUpAt.getTime() - t.getTime();
 
         if (remainingMs > 0) {
-          await sleeper.goSleep(remainingMs);
+          await goSleep(remainingMs);
         }
 
         return;
       }
 
-      sleepUntil = new Date(now.getTime() + ms);
-      const timeoutAt = new Date(sleepUntil.getTime() + timeoutIntervalMs);
-      await persistence.setSleepUntil(workflowId, napId, sleepUntil, timeoutAt);
-      await sleeper.goSleep(ms);
+      wakeUpAt = new Date(t.getTime() + ms);
+      const timeoutAt = new Date(wakeUpAt.getTime() + timeoutIntervalMs);
+      await persistence.setWakeUpAt(workflowId, napId, wakeUpAt, timeoutAt);
+      await goSleep(ms);
     };
   };
 }
@@ -233,7 +206,7 @@ function makeRun(
   handlers: Map<string, Handler>,
   makeStep: (
     workflowId: string
-  ) => <T>(actionId: string, fn: () => Promise<T>) => Promise<T>,
+  ) => <T>(stepId: string, fn: () => Promise<T>) => Promise<T>,
   makeSleep: (
     workflowId: string
   ) => (napId: string, ms: number) => Promise<void>,
@@ -243,17 +216,16 @@ function makeRun(
   timeoutIntervalMs: number
 ) {
   return async function (workflowId: string): Promise<void> {
-    const runData = await persistence.find(workflowId);
+    const runData = await persistence.findRunData(workflowId);
 
     if (!runData) {
-      throw new LidexError(`workflow not found: ${workflowId}`);
+      throw new Error(`workflow not found: ${workflowId}`);
     }
 
-    const { handler, input, failures } = runData;
-    const fn = handlers.get(handler);
+    const fn = handlers.get(runData.handler);
 
     if (!fn) {
-      throw new LidexError(`handler not found: ${handler}`);
+      throw new Error(`handler not found: ${runData.handler}`);
     }
 
     const ctx: Context = {
@@ -263,7 +235,7 @@ function makeRun(
     };
 
     try {
-      await fn(ctx, input);
+      await fn(ctx, runData.input);
       await persistence.setAsFinished(workflowId);
     } catch (error) {
       let lastError = "";
@@ -274,16 +246,16 @@ function makeRun(
         lastError = JSON.stringify(error);
       }
 
-      const failuresInc = (failures || 0) + 1;
-      const status = failuresInc < maxFailures ? FAILED : ABORTED;
+      const failures = (runData.failures || 0) + 1;
+      const status = failures < maxFailures ? "failed" : "aborted";
       const t = clock.now();
       const timeoutAt = new Date(t.getTime() + timeoutIntervalMs);
 
-      await persistence.updateError(
+      await persistence.setError(
         workflowId,
         status,
         timeoutAt,
-        failuresInc,
+        failures,
         lastError
       );
     }
@@ -296,11 +268,14 @@ function makeStart(persistence: Persistence) {
     handler: string,
     input: T
   ): Promise<boolean> {
-    return await persistence.create(workflowId, handler, input);
+    return persistence.insert(workflowId, handler, input);
   };
 }
 
-function makeWait(persistence: Persistence, sleeper: Sleeper) {
+function makeWait(
+  persistence: Persistence,
+  goSleep: (ms: number) => Promise<void>
+) {
   return async function (
     workflowId: string,
     status: Status[],
@@ -308,13 +283,13 @@ function makeWait(persistence: Persistence, sleeper: Sleeper) {
     ms: number
   ): Promise<Status | undefined> {
     for (let i = 0; i < times; i++) {
-      const result = await persistence.findByStatus(workflowId, status);
+      const found = await persistence.findByStatus(workflowId, status);
 
-      if (result) {
-        return result;
+      if (found) {
+        return found;
       }
 
-      await sleeper.goSleep(ms);
+      await goSleep(ms);
     }
 
     return undefined;
@@ -324,7 +299,7 @@ function makeWait(persistence: Persistence, sleeper: Sleeper) {
 function makePoll(
   claim: () => Promise<string | undefined>,
   run: (workflowId: string) => Promise<void>,
-  sleeper: Sleeper,
+  goSleep: (ms: number) => Promise<void>,
   pollIntervalMs: number
 ) {
   return async function (shouldStop: () => boolean): Promise<void> {
@@ -334,7 +309,7 @@ function makePoll(
       if (workflowId) {
         run(workflowId); // Intentionally not awaiting
       } else {
-        await sleeper.goSleep(pollIntervalMs);
+        await goSleep(pollIntervalMs);
       }
     }
   };
@@ -351,24 +326,24 @@ export async function makeClient(config: Config): Promise<Client> {
   const maxFailures = config.maxFailures || DEFAULT_MAX_FAILURES;
   const timeoutIntervalMs = config.timeoutIntervalMs || DEFAULT_TIMEOUT_MS;
   const pollIntervalMs = config.pollIntervalMs || DEFAULT_POLL_MS;
-  const mongo = new MongoClient(mongoUrl);
-  const db = mongo.db();
-  const workflows = db.collection<Workflow>(COLL_NAME);
-  await workflows.createIndex({ id: 1 }, { unique: true });
-  await workflows.createIndex({ status: 1 });
-  await workflows.createIndex({ status: 1, timeoutAt: 1 });
-  const start = makeStart(workflows, now);
-  const wait = makeWait(workflows, goSleep);
-  const claim = makeClaim(workflows, now, timeoutIntervalMs);
-  const makeStep = makeMakeStep(workflows, timeoutIntervalMs, now);
-  const makeSleep = makeMakeSleep(workflows, timeoutIntervalMs, goSleep, now);
+  const start = makeStart(persistence);
+  const wait = makeWait(persistence, goSleep);
+  const claim = makeClaim(persistence, clock, timeoutIntervalMs);
+  const makeStep = makeMakeStep(persistence, clock, timeoutIntervalMs);
+
+  const makeSleep = makeMakeSleep(
+    persistence,
+    clock,
+    timeoutIntervalMs,
+    goSleep
+  );
 
   const run = makeRun(
-    workflows,
+    persistence,
     handlers,
     makeStep,
     makeSleep,
-    now,
+    clock,
     start,
     maxFailures,
     timeoutIntervalMs
