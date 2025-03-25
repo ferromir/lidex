@@ -12,8 +12,10 @@ No additional services are required. Your Node.js app can start workflows and al
 ### Scalable
 Scale horizontally by adding simply more instances of your service so you can process more workflows.
 
-### Powered by MongoDB
-Workflow state is stored in MongoDB. If your application already uses MongoDB you don't even have to add additional database infrastructure.
+### DB Agnostic
+The package has zero-dependencies. Persistence is implemented in another package. This design desicion allows teams to use their database of choice and not having to add new infrastructure to their system.
+
+For MongoDB there is [lidex-mongo](https://github.com/ferromir/lidex-mongo). Other persistence providers will follow in the near future.
 
 ### Minimalistic
 It adds a minimal of features to implement a realiable durable execution solution. It implements start, step and sleep only.
@@ -24,6 +26,10 @@ Written in TypeScript, types provided in the package.
 ## Install
 ```bash
 npm install lidex
+```
+And to add the persistence:
+```bash
+npm install lidex-mongo
 ```
 
 ## Basic usage
@@ -88,11 +94,9 @@ handlers.set(
   invoiceService.collectPayment.bind(invoiceService),
 );
 
-const client = await makeClient({
-  handlers,
-  mongoUrl: "mongodb://localhost:27017/lidex",
-  now: () => new Date(),
-});
+const persistence = new MongoPersistence("mongodb://localhost:27017/lidex");
+await persistence.init();
+const client = await makeClient({ handlers, persistence });
 
 app.post("/invoices/:invoiceId/collect", async (req, res) => {
   const invoiceId = req.params.invoiceId;
@@ -144,8 +148,7 @@ This is the configuration required to create a client.
 | Property          | Default   | Description |
 --------------------|-----------|--------------
 | handlers          |           | A map where the key is the handler identifier and the value is the the handler function. This is how Lidex know during runtime what function should be used to run the workflow. |
-| now               |           | A function that returns current time. |
-| mongoUrl          |           | The MongoDB url. |
+| persistence       |           | The persistence provider |
 | maxFailures       | 3         | The max amount of time a workflow can fail before changing it's status to "aborted". |
 | timeoutIntervalMs | 5 minutes | The amount of milliseconds for timeouts. After timing out, a running workflow is considered ready to be picked-up by any other instance polling workflows. |
 | pollIntervalMs    | 5 seconds | It defines the length of the pause between poll calls to the database when last call was empty. |
