@@ -159,7 +159,7 @@ function makeMakeStep(
         {
           projection: {
             _id: 0,
-            [`actions.${id}`]: 1,
+            [`steps.${id}`]: 1,
           },
         }
       );
@@ -253,7 +253,7 @@ function makeRun(
   handlers: Map<string, Handler>,
   makeStep: (
     workflowId: string
-  ) => <T>(actionId: string, fn: () => Promise<T>) => Promise<T>,
+  ) => <T>(stepId: string, fn: () => Promise<T>) => Promise<T>,
   makeSleep: (
     workflowId: string
   ) => (napId: string, ms: number) => Promise<void>,
