@@ -79,7 +79,7 @@ interface RunData {
 
 export interface Persistence {
   insert(workflowId: string, handler: string, input: unknown): Promise<boolean>;
-  claim(timeoutAt: Date): Promise<string | undefined>;
+  claim(now: Date, timeoutAt: Date): Promise<string | undefined>;
   findOutput(workflowId: string, stepId: string): Promise<unknown>;
   findWakeUpAt(workflowId: string, napId: string): Promise<Date | undefined>;
   findRunData(workflowId: string): Promise<RunData | undefined>;
@@ -110,8 +110,10 @@ export interface Persistence {
 }
 
 function goSleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
+  return new Promise<void>((resolve) => {
+    setTimeout(() => {
+      resolve();
+    }, ms);
   });
 }
 
@@ -119,7 +121,7 @@ function makeClaim(persistence: Persistence, timeoutIntervalMs: number) {
   return async function (): Promise<string | undefined> {
     const now = new Date();
     const timeoutAt = new Date(now.getTime() + timeoutIntervalMs);
-    return await persistence.claim(timeoutAt);
+    return await persistence.claim(now, timeoutAt);
   };
 }
 
@@ -131,7 +133,7 @@ function makeMakeStep(persistence: Persistence, timeoutIntervalMs: number) {
     ): Promise<T> {
       let output = await persistence.findOutput(workflowId, stepId);
 
-      if (output != undefined) {
+      if (!(output === undefined)) {
         return output as T;
       }
 
