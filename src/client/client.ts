@@ -102,7 +102,7 @@ export interface Config {
 export interface Persistence {
   insertWorkflow(workflow: Workflow): Promise<boolean>;
   updateWorkflow(workflow: Workflow): Promise<void>;
-  claimWorkflow(timeoutAt: Date): Promise<Workflow | undefined>;
+  claimWorkflow(timeoutAt: Date): Promise<string | undefined>;
   findWorkflow(workflowId: string): Promise<Workflow | undefined>;
   findStep(workflowId: string, stepId: string): Promise<Step | undefined>;
   updateWorkflowAndInsertStep(workflow: Workflow, step: Step): Promise<void>;
@@ -118,8 +118,7 @@ function makeClaim(
   return async function (): Promise<string | undefined> {
     const now = clock.now();
     const timeoutAt = new Date(now.getTime() + timeoutIntervalMs);
-    const workflow = await persistence.claimWorkflow(timeoutAt);
-    return workflow?.id;
+    return await persistence.claimWorkflow(timeoutAt);
   };
 }
 
