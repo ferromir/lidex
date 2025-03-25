@@ -4,5 +4,7 @@ src
 .gitignore
 jest.config.js
 tsconfig.json
+index.test.js
+index.test.d.ts
 index.*.test.js
 index.*.test.d.ts
