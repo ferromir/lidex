@@ -2,9 +2,8 @@
 coverage
 src
 .gitignore
-jest.config.js
+jest.config.ts
+jest.config.d.ts
 tsconfig.json
 index.test.js
 index.test.d.ts
-index.*.test.js
-index.*.test.d.ts
