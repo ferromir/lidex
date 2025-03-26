@@ -4,6 +4,19 @@
 
 Lidex is a lightweight durable execution library that allows you to write and execute workflows.
 
+
+## Motivation
+My interest in durable execution starts from a desire to reduce complexity in software architectures. After evaluating the most popular durable execution solutions I have noticed:
+* That most require to run an addition service provided by the developer of the solution.
+* That often, design choices are made just to monetize.
+* That a certain database is required, so if you don't use that in your system, then is more infrastructure that you have to handle.
+* That APIs require you to write the code in non-idiomatic ways.
+
+Based on this, Lidex goals are:
+* Provide a minimum set of durable execution capabilities (step, sleep, start).
+* Be compatible with the most popular databases, so no additional infrastructure is required.
+* Integrate easily with your current codebase.
+
 ## Features
 
 ### Lightweight
