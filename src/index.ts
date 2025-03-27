@@ -204,7 +204,6 @@ function makeRun(
 
     try {
       await fn(ctx, runData.input);
-      await persistence.setAsFinished(workflowId);
     } catch (error) {
       let lastError = "";
 
@@ -226,7 +225,11 @@ function makeRun(
         failures,
         lastError
       );
+
+      return;
     }
+
+    await persistence.setAsFinished(workflowId);
   };
 }
 
