@@ -78,14 +78,76 @@ interface RunData {
 }
 
 export interface Persistence {
+  /**
+   * Inserts a workflow.
+   * @param workflowId The id of the workflow.
+   * @param handler The name of the handler.
+   * @param input The input for the workflow.
+   * @returns True is the workflow was inserted. False is the workflow already
+   * exists.
+   */
   insert(workflowId: string, handler: string, input: unknown): Promise<boolean>;
+
+  /**
+   * It consists of two actions:
+   * 1. Find a workflow that is ready to run.
+   * 2. Update the timeout and set the status to "running".
+   * These 2 steps have to be performed atomically.
+   *
+   * A "ready to run" workflow matches the following condition:
+   * (status is "idle") OR
+   * (status is "running" AND timeoutAt < CURRENT_TIME) OR
+   * (status is "failed" AND timeoutAt < CURRENT_TIME)
+   * @param now The current time.
+   * @param timeoutAt The workflow timeout.
+   * @returns The workflow id.
+   */
   claim(now: Date, timeoutAt: Date): Promise<string | undefined>;
+
+  /**
+   * Finds the stored output for the given workflow and step.
+   * @param workflowId Id of the workflow.
+   * @param stepId Id of the step.
+   * @returns The output. Returns undefined if not found.
+   */
   findOutput(workflowId: string, stepId: string): Promise<unknown>;
+
+  /**
+   * Finds the stored wake up time for the given workflow and nap.
+   * @param workflowId Id of the workflow.
+   * @param napId Id of the nap.
+   * @returns The wake up time. Returns undefined if not found.
+   */
   findWakeUpAt(workflowId: string, napId: string): Promise<Date | undefined>;
+
+  /**
+   * Finds information about the workflow required to run it.
+   * @param workflowId Id of the workflow.
+   * @returns The run data.
+   */
   findRunData(workflowId: string): Promise<RunData | undefined>;
+
+  /**
+   * It sets the status of the workflow to "finished".
+   * @param workflowId Id of the workflow.
+   */
   setAsFinished(workflowId: string): Promise<void>;
+
+  /**
+   * Finds the status of a workflow.
+   * @param workflowId Id of the workflow.
+   * @returns The status if found, otherwise undefined.
+   */
   findStatus(workflowId: string): Promise<Status | undefined>;
 
+  /**
+   * Updates the status, timeoutAt, failures and lastError.
+   * @param workflowId Id of the workflow.
+   * @param status Status of the workflow.
+   * @param timeoutAt The workflow timeout.
+   * @param failures The amount of failures.
+   * @param lastError Last error message.
+   */
   updateStatus(
     workflowId: string,
     status: Status,
@@ -94,6 +156,13 @@ export interface Persistence {
     lastError: string
   ): Promise<void>;
 
+  /**
+   * Updates the step's output and timeoutAt.
+   * @param workflowId Id of the workflow.
+   * @param stepId Id of the step.
+   * @param output Output of the step.
+   * @param timeoutAt The workflow timeout.
+   */
   updateOutput(
     workflowId: string,
     stepId: string,
@@ -101,6 +170,13 @@ export interface Persistence {
     timeoutAt: Date
   ): Promise<void>;
 
+  /**
+   * Updates the step's output and timeoutAt.
+   * @param workflowId Id of the workflow.
+   * @param napId Id of the nap.
+   * @param wakeUpAt Wake up time of the nap.
+   * @param timeoutAt The workflow timeout.
+   */
   updateWakeUpAt(
     workflowId: string,
     napId: string,
