@@ -1,8 +1,15 @@
 import { forInternalTesting, Persistence } from "./index";
 import { mock } from "jest-mock-extended";
 
-const { makeClaim, makeMakeStep, makeMakeSleep, makeRun, makeStart, makeWait } =
-  forInternalTesting;
+const {
+  makeClaim,
+  makeMakeStep,
+  makeMakeSleep,
+  makeRun,
+  makeStart,
+  makeWait,
+  makePoll,
+} = forInternalTesting;
 
 const persistence = mock<Persistence>();
 const now = new Date("2011-10-05T14:48:00.000Z");
@@ -281,6 +288,36 @@ describe("wait", () => {
     const status = await wait("workflow-1", ["finished", "aborted"], 1, 500);
     expect(status).toBeUndefined();
     expect(persistence.findStatus).toHaveBeenCalledWith("workflow-1");
+    expect(setTimeout).toHaveBeenCalledWith(expect.anything(), 500);
+  });
+});
+
+describe("poll", () => {
+  it("runs claimed workflows", async () => {
+    const claim = jest.fn().mockResolvedValue("workflow-1");
+    const run = jest.fn();
+    const poll = makePoll(claim, run, 500);
+
+    const shouldStop = jest
+      .fn()
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true);
+
+    await expect(poll(shouldStop)).resolves.not.toThrow();
+    expect(run).toHaveBeenCalledWith("workflow-1");
+  });
+
+  it("pauses if no workflow is claimed", async () => {
+    const claim = jest.fn();
+    const run = jest.fn();
+    const poll = makePoll(claim, run, 500);
+
+    const shouldStop = jest
+      .fn()
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true);
+
+    await expect(poll(shouldStop)).resolves.not.toThrow();
     expect(setTimeout).toHaveBeenCalledWith(expect.anything(), 500);
   });
 });
