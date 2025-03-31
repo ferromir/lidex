@@ -53,7 +53,7 @@ export interface Client {
     id: string,
     status: Status[],
     times: number,
-    ms: number
+    ms: number,
   ): Promise<Status | undefined>;
 
   /**
@@ -153,7 +153,7 @@ export interface Persistence {
     status: Status,
     timeoutAt: Date,
     failures: number,
-    lastError: string
+    lastError: string,
   ): Promise<void>;
 
   /**
@@ -167,7 +167,7 @@ export interface Persistence {
     workflowId: string,
     stepId: string,
     output: unknown,
-    timeoutAt: Date
+    timeoutAt: Date,
   ): Promise<void>;
 
   /**
@@ -181,7 +181,7 @@ export interface Persistence {
     workflowId: string,
     napId: string,
     wakeUpAt: Date,
-    timeoutAt: Date
+    timeoutAt: Date,
   ): Promise<void>;
 }
 
@@ -205,7 +205,7 @@ function makeMakeStep(persistence: Persistence, timeoutIntervalMs: number) {
   return function (workflowId: string) {
     return async function <T>(
       stepId: string,
-      fn: () => Promise<T>
+      fn: () => Promise<T>,
     ): Promise<T> {
       let output = await persistence.findOutput(workflowId, stepId);
 
@@ -250,14 +250,14 @@ function makeRun(
   persistence: Persistence,
   handlers: Map<string, Handler>,
   makeStep: (
-    workflowId: string
+    workflowId: string,
   ) => <T>(stepId: string, fn: () => Promise<T>) => Promise<T>,
   makeSleep: (
-    workflowId: string
+    workflowId: string,
   ) => (napId: string, ms: number) => Promise<void>,
   start: <T>(id: string, handler: string, input: T) => Promise<boolean>,
   maxFailures: number,
-  timeoutIntervalMs: number
+  timeoutIntervalMs: number,
 ) {
   return async function (workflowId: string): Promise<void> {
     const runData = await persistence.findRunData(workflowId);
@@ -299,7 +299,7 @@ function makeRun(
         status,
         timeoutAt,
         failures,
-        lastError
+        lastError,
       );
 
       return;
@@ -313,7 +313,7 @@ function makeStart(persistence: Persistence) {
   return async function <T>(
     workflowId: string,
     handler: string,
-    input: T
+    input: T,
   ): Promise<boolean> {
     return persistence.insert(workflowId, handler, input);
   };
@@ -324,7 +324,7 @@ function makeWait(persistence: Persistence) {
     workflowId: string,
     status: Status[],
     times: number,
-    ms: number
+    ms: number,
   ): Promise<Status | undefined> {
     for (let i = 0; i < times; i++) {
       const found = await persistence.findStatus(workflowId);
@@ -343,7 +343,7 @@ function makeWait(persistence: Persistence) {
 function makePoll(
   claim: () => Promise<string | undefined>,
   run: (workflowId: string) => Promise<void>,
-  pollIntervalMs: number
+  pollIntervalMs: number,
 ) {
   return async function (shouldStop: () => boolean): Promise<void> {
     while (!shouldStop()) {
@@ -382,7 +382,7 @@ export async function makeClient(config: Config): Promise<Client> {
     makeSleep,
     start,
     maxFailures,
-    timeoutIntervalMs
+    timeoutIntervalMs,
   );
 
   const poll = makePoll(claim, run, pollIntervalMs);

@@ -98,7 +98,7 @@ describe("sleep", () => {
       "workflow-1",
       "nap-1",
       wakeUpAt,
-      timeoutAt
+      timeoutAt,
     );
 
     expect(setTimeout).toHaveBeenCalledWith(expect.anything(), 1000);
@@ -119,7 +119,7 @@ describe("run", () => {
       makeSleep,
       start,
       3,
-      timeoutIntervalMs
+      timeoutIntervalMs,
     );
 
     const result = run("workflow-1");
@@ -146,7 +146,7 @@ describe("run", () => {
       makeSleep,
       start,
       3,
-      timeoutIntervalMs
+      timeoutIntervalMs,
     );
 
     const result = run("workflow-1");
@@ -174,7 +174,7 @@ describe("run", () => {
       makeSleep,
       start,
       3,
-      timeoutIntervalMs
+      timeoutIntervalMs,
     );
 
     const result = run("workflow-1");
@@ -204,7 +204,7 @@ describe("run", () => {
       makeSleep,
       start,
       3,
-      timeoutIntervalMs
+      timeoutIntervalMs,
     );
 
     const result = run("workflow-1");
@@ -218,7 +218,7 @@ describe("run", () => {
       "failed",
       timeoutAt,
       2,
-      "kapot"
+      "kapot",
     );
   });
 
@@ -241,7 +241,7 @@ describe("run", () => {
       makeSleep,
       start,
       1,
-      timeoutIntervalMs
+      timeoutIntervalMs,
     );
 
     const result = run("workflow-1");
@@ -255,7 +255,7 @@ describe("run", () => {
       "aborted",
       timeoutAt,
       1,
-      '"kapot"'
+      '"kapot"',
     );
   });
 });
@@ -269,7 +269,7 @@ describe("start", () => {
     expect(persistence.insert).toHaveBeenCalledWith(
       "workflow-1",
       "handler-1",
-      "input-1"
+      "input-1",
     );
   });
 });

@@ -10,13 +10,13 @@ export default async (): Promise<Config> => {
     preset: "ts-jest",
     collectCoverage: true,
     collectCoverageFrom: ["<rootDir>/**/*.ts"],
-    // coverageThreshold: {
-    //   global: {
-    //     branches: 100,
-    //     functions: 100,
-    //     lines: 100,
-    //     statements: 100,
-    //   },
-    // },
+    coverageThreshold: {
+      global: {
+        branches: 100,
+        functions: 100,
+        lines: 100,
+        statements: 100,
+      },
+    },
   };
 };
