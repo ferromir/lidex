@@ -29,7 +29,7 @@ No additional services are required. Your Node.js app can start workflows and al
 
 Scale horizontally by adding simply more instances of your service so you can process more workflows.
 
-### DB Agnostic
+### Persistence agnostic
 
 The package has zero-dependencies. Persistence is implemented in another package. This design desicion allows teams to use their database of choice and not having to add new infrastructure to their system.
 
