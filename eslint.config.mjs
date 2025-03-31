@@ -6,7 +6,6 @@ import prettierConfig from "eslint-config-prettier";
 export default [
   {
     files: ["**/*.ts"],
-    ignores: ["**/*.d.ts"],
     languageOptions: {
       parser: tsparser,
       sourceType: "module",
@@ -19,5 +18,8 @@ export default [
       ...tseslint.configs.recommended.rules,
       ...prettierConfig.rules,
     },
+  },
+  {
+    ignores: ["**/*.d.ts", "**/*.js"],
   },
 ];

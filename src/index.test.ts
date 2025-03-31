@@ -32,6 +32,7 @@ beforeEach(() => {
   persistence.findRunData.mockReset();
   persistence.insert.mockReset();
   persistence.findStatus.mockReset();
+  persistence.init.mockReset();
 });
 
 describe("claim", () => {
@@ -355,6 +356,7 @@ describe("makeClient", () => {
 
     const client = await makeClient(config);
     expect(client).toBeDefined();
+    expect(persistence.init).toHaveBeenCalled();
   });
 
   it("creates a client with defaults", async () => {
@@ -365,5 +367,6 @@ describe("makeClient", () => {
 
     const client = await makeClient(config);
     expect(client).toBeDefined();
+    expect(persistence.init).toHaveBeenCalled();
   });
 });

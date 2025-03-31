@@ -79,6 +79,11 @@ interface RunData {
 
 export interface Persistence {
   /**
+   * Initializes the persistence provider.
+   */
+  init(): Promise<void>;
+
+  /**
    * Inserts a workflow.
    * @param workflowId The id of the workflow.
    * @param handler The name of the handler.
@@ -366,6 +371,7 @@ function makePoll(
  */
 export async function makeClient(config: Config): Promise<Client> {
   const { handlers, persistence } = config;
+  await persistence.init();
   const maxFailures = config.maxFailures || DEFAULT_MAX_FAILURES;
   const timeoutIntervalMs = config.timeoutIntervalMs || DEFAULT_TIMEOUT_MS;
   const pollIntervalMs = config.pollIntervalMs || DEFAULT_POLL_MS;
