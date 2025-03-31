@@ -1,4 +1,4 @@
-import { forInternalTesting, Persistence } from "./index";
+import { Config, forInternalTesting, makeClient, Persistence } from "./index";
 import { mock } from "jest-mock-extended";
 
 const {
@@ -319,5 +319,30 @@ describe("poll", () => {
 
     await expect(poll(shouldStop)).resolves.not.toThrow();
     expect(setTimeout).toHaveBeenCalledWith(expect.anything(), 500);
+  });
+});
+
+describe("makeClient", () => {
+  it("creates a client with the given config", async () => {
+    const config: Config = {
+      persistence,
+      handlers: new Map(),
+      maxFailures: 3,
+      timeoutIntervalMs: 5000,
+      pollIntervalMs: 1000,
+    };
+
+    const client = await makeClient(config);
+    expect(client).toBeDefined();
+  });
+
+  it("creates a client with defaults", async () => {
+    const config: Config = {
+      persistence,
+      handlers: new Map(),
+    };
+
+    const client = await makeClient(config);
+    expect(client).toBeDefined();
   });
 });
