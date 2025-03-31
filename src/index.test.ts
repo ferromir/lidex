@@ -1,7 +1,9 @@
 import { forInternalTesting, Persistence } from "./index";
 import { mock } from "jest-mock-extended";
 
-const { makeClaim, makeMakeStep, makeMakeSleep, makeRun } = forInternalTesting;
+const { makeClaim, makeMakeStep, makeMakeSleep, makeRun, makeStart, makeWait } =
+  forInternalTesting;
+
 const persistence = mock<Persistence>();
 const now = new Date("2011-10-05T14:48:00.000Z");
 const timeoutIntervalMs = 1000;
@@ -21,6 +23,8 @@ beforeEach(() => {
   persistence.findWakeUpAt.mockReset();
   persistence.updateWakeUpAt.mockReset();
   persistence.findRunData.mockReset();
+  persistence.insert.mockReset();
+  persistence.findStatus.mockReset();
 });
 
 describe("claim", () => {
@@ -246,5 +250,37 @@ describe("run", () => {
       1,
       '"kapot"'
     );
+  });
+});
+
+describe("start", () => {
+  it("inserts the workflow", async () => {
+    const start = makeStart(persistence);
+    const result = start("workflow-1", "handler-1", "input-1");
+    expect(result).resolves.not.toThrow();
+
+    expect(persistence.insert).toHaveBeenCalledWith(
+      "workflow-1",
+      "handler-1",
+      "input-1"
+    );
+  });
+});
+
+describe("wait", () => {
+  it("returns the status of the matching workflow", async () => {
+    persistence.findStatus.mockResolvedValue("finished");
+    const wait = makeWait(persistence);
+    const status = await wait("workflow-1", ["finished", "aborted"], 1, 500);
+    expect(status).toEqual("finished");
+    expect(persistence.findStatus).toHaveBeenCalledWith("workflow-1");
+  });
+
+  it("pauses if not found before trying again", async () => {
+    const wait = makeWait(persistence);
+    const status = await wait("workflow-1", ["finished", "aborted"], 1, 500);
+    expect(status).toBeUndefined();
+    expect(persistence.findStatus).toHaveBeenCalledWith("workflow-1");
+    expect(setTimeout).toHaveBeenCalledWith(expect.anything(), 500);
   });
 });
