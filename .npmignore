@@ -1,4 +1,4 @@
-.github
+.github/
 coverage/
 dist/src/index.test.d.ts
 dist/src/index.test.js
@@ -8,3 +8,5 @@ src/
 .gitignore
 jest.config.ts
 tsconfig.json
+.prettierrc.json
+eslint.config.mjs
