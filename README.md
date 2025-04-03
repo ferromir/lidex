@@ -120,7 +120,6 @@ handlers.set(
 );
 
 const persistence = new MongoPersistence("mongodb://localhost:27017/lidex");
-await persistence.init();
 const client = await makeClient({ handlers, persistence });
 
 app.post("/invoices/:invoiceId/collect", async (req, res) => {
@@ -183,4 +182,6 @@ This is the configuration required to create a client.
 | persistence | | The persistence provider. |
 | maxFailures | 3 | The max amount of time a workflow can fail before changing it's status to "aborted". |
 | timeoutIntervalMs | 1 minute | The amount of milliseconds for timeouts. After timing out, a running workflow is considered ready to be picked-up by any other instance polling workflows. |
-| pollIntervalMs | 1 second | It defines the length of the pause between poll calls to the database when last call was empty. |
+| pollIntervalMs | 1 second | It defines the length of the pause between poll calls to the database when last call 
+was empty. |
+| retryIntervalMS | 1 minute | It defines the length of the pause between retries. |

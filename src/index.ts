@@ -1,6 +1,7 @@
 const DEFAULT_MAX_FAILURES = 3;
 const DEFAULT_TIMEOUT_MS = 60_000; // 1m
 const DEFAULT_POLL_MS = 1_000; // 1s
+const DEFAULT_RETRY_MS = 60_000; // 1s
 
 export type Status = "idle" | "running" | "failed" | "finished" | "aborted";
 
@@ -69,6 +70,7 @@ export interface Config {
   maxFailures?: number;
   timeoutIntervalMs?: number;
   pollIntervalMs?: number;
+  retryIntervalMs?: number;
 }
 
 interface RunData {
@@ -262,7 +264,7 @@ function makeRun(
   ) => (napId: string, ms: number) => Promise<void>,
   start: <T>(id: string, handler: string, input: T) => Promise<boolean>,
   maxFailures: number,
-  timeoutIntervalMs: number,
+  retryIntervalMs: number,
 ) {
   return async function (workflowId: string): Promise<void> {
     const runData = await persistence.findRunData(workflowId);
@@ -297,7 +299,7 @@ function makeRun(
       const failures = (runData.failures || 0) + 1;
       const status = failures < maxFailures ? "failed" : "aborted";
       const now = new Date();
-      const timeoutAt = new Date(now.getTime() + timeoutIntervalMs);
+      const timeoutAt = new Date(now.getTime() + retryIntervalMs);
 
       await persistence.updateStatus(
         workflowId,
@@ -375,6 +377,7 @@ export async function makeClient(config: Config): Promise<Client> {
   const maxFailures = config.maxFailures || DEFAULT_MAX_FAILURES;
   const timeoutIntervalMs = config.timeoutIntervalMs || DEFAULT_TIMEOUT_MS;
   const pollIntervalMs = config.pollIntervalMs || DEFAULT_POLL_MS;
+  const retryIntervalMs = config.retryIntervalMs || DEFAULT_RETRY_MS;
   const start = makeStart(persistence);
   const wait = makeWait(persistence);
   const claim = makeClaim(persistence, timeoutIntervalMs);
@@ -388,7 +391,7 @@ export async function makeClient(config: Config): Promise<Client> {
     makeSleep,
     start,
     maxFailures,
-    timeoutIntervalMs,
+    retryIntervalMs,
   );
 
   const poll = makePoll(claim, run, pollIntervalMs);

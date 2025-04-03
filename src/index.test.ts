@@ -168,7 +168,7 @@ describe("run", () => {
       makeSleep,
       start,
       3,
-      timeoutIntervalMs,
+      1000,
     );
 
     const result = run("workflow-1");
@@ -196,7 +196,7 @@ describe("run", () => {
       makeSleep,
       start,
       3,
-      timeoutIntervalMs,
+      1000,
     );
 
     const result = run("workflow-1");
@@ -226,14 +226,14 @@ describe("run", () => {
       makeSleep,
       start,
       3,
-      timeoutIntervalMs,
+      1000,
     );
 
     const result = run("workflow-1");
     await expect(result).resolves.not.toThrow();
     expect(persistence.findRunData).toHaveBeenCalledWith("workflow-1");
     expect(handler).toHaveBeenCalledWith(expect.anything(), "input-1");
-    const timeoutAt = new Date(now.getTime() + timeoutIntervalMs);
+    const timeoutAt = new Date(now.getTime() + 1000);
 
     expect(persistence.updateStatus).toHaveBeenCalledWith(
       "workflow-1",
@@ -263,14 +263,14 @@ describe("run", () => {
       makeSleep,
       start,
       1,
-      timeoutIntervalMs,
+      1000,
     );
 
     const result = run("workflow-1");
     await expect(result).resolves.not.toThrow();
     expect(persistence.findRunData).toHaveBeenCalledWith("workflow-1");
     expect(handler).toHaveBeenCalledWith(expect.anything(), "input-1");
-    const timeoutAt = new Date(now.getTime() + timeoutIntervalMs);
+    const timeoutAt = new Date(now.getTime() + 1000);
 
     expect(persistence.updateStatus).toHaveBeenCalledWith(
       "workflow-1",
