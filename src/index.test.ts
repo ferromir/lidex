@@ -345,21 +345,7 @@ describe("poll", () => {
 });
 
 describe("makeClient", () => {
-  it("creates a client with the given config", async () => {
-    const config: Config = {
-      persistence,
-      handlers: new Map(),
-      maxFailures: 3,
-      timeoutIntervalMs: 5000,
-      pollIntervalMs: 1000,
-    };
-
-    const client = await makeClient(config);
-    expect(client).toBeDefined();
-    expect(persistence.init).toHaveBeenCalled();
-  });
-
-  it("creates a client with defaults", async () => {
+  it("creates a client", async () => {
     const config: Config = {
       persistence,
       handlers: new Map(),
