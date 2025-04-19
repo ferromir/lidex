@@ -1,8 +1,3 @@
-const DEFAULT_MAX_FAILURES = 3;
-const DEFAULT_TIMEOUT_MS = 60_000; // 1m
-const DEFAULT_POLL_MS = 1_000; // 1s
-const DEFAULT_RETRY_MS = 60_000; // 1s
-
 export type Status = "idle" | "running" | "failed" | "finished" | "aborted";
 
 export interface Context {
@@ -29,7 +24,9 @@ export interface Context {
   start<T>(id: string, handler: string, input: T): Promise<boolean>;
 }
 
-export type Handler = (ctx: Context, input: unknown) => Promise<void>;
+export interface ClientConfig {
+  persistence: Persistence;
+}
 
 export interface Client {
   /**
@@ -56,7 +53,20 @@ export interface Client {
     times: number,
     ms: number,
   ): Promise<Status | undefined>;
+}
 
+export type Handler = (ctx: Context, input: unknown) => Promise<void>;
+
+export interface WorkerConfig {
+  persistence: Persistence;
+  handlers: Map<string, Handler>;
+  maxFailures?: number;
+  timeoutIntervalMs?: number;
+  pollIntervalMs?: number;
+  retryIntervalMs?: number;
+}
+
+export interface Worker {
   /**
    * It starts polling workflows.
    * @param shouldStop Circuit breaker for the polling loop.
@@ -64,16 +74,7 @@ export interface Client {
   poll(shouldStop: () => boolean): Promise<void>;
 }
 
-export interface Config {
-  handlers: Map<string, Handler>;
-  persistence: Persistence;
-  maxFailures?: number;
-  timeoutIntervalMs?: number;
-  pollIntervalMs?: number;
-  retryIntervalMs?: number;
-}
-
-interface RunData {
+export interface RunData {
   handler: string;
   input: unknown;
   failures?: number;
@@ -190,15 +191,69 @@ export interface Persistence {
     wakeUpAt: Date,
     timeoutAt: Date,
   ): Promise<void>;
+
+  /**
+   * Terminates the persistence provider.
+   */
+  terminate(): Promise<void>;
 }
 
-function goSleep(ms: number): Promise<void> {
+// Shared code:
+
+async function goSleep(ms: number): Promise<void> {
   return new Promise<void>((resolve) => {
     setTimeout(() => {
       resolve();
     }, ms);
   });
 }
+
+function makeStart(persistence: Persistence) {
+  return async function <T>(
+    workflowId: string,
+    handler: string,
+    input: T,
+  ): Promise<boolean> {
+    return persistence.insert(workflowId, handler, input);
+  };
+}
+
+// Client code:
+
+function makeWait(persistence: Persistence) {
+  return async function (
+    workflowId: string,
+    status: Status[],
+    times: number,
+    ms: number,
+  ): Promise<Status | undefined> {
+    for (let i = 0; i < times; i++) {
+      const foundStatus = await persistence.findStatus(workflowId);
+
+      if (foundStatus && status.includes(foundStatus)) {
+        return foundStatus;
+      }
+
+      await goSleep(ms);
+    }
+
+    return undefined;
+  };
+}
+
+export async function makeClient(config: ClientConfig): Promise<Client> {
+  const { persistence } = config;
+  const start = makeStart(persistence);
+  const wait = makeWait(persistence);
+  return { start, wait };
+}
+
+// Worker code:
+
+const DEFAULT_MAX_FAILURES = 3;
+const DEFAULT_TIMEOUT_MS = 60_000;
+const DEFAULT_POLL_MS = 1_000;
+const DEFAULT_RETRY_MS = 60_000;
 
 function makeClaim(persistence: Persistence, timeoutIntervalMs: number) {
   return async function (): Promise<string | undefined> {
@@ -316,37 +371,6 @@ function makeRun(
   };
 }
 
-function makeStart(persistence: Persistence) {
-  return async function <T>(
-    workflowId: string,
-    handler: string,
-    input: T,
-  ): Promise<boolean> {
-    return persistence.insert(workflowId, handler, input);
-  };
-}
-
-function makeWait(persistence: Persistence) {
-  return async function (
-    workflowId: string,
-    status: Status[],
-    times: number,
-    ms: number,
-  ): Promise<Status | undefined> {
-    for (let i = 0; i < times; i++) {
-      const found = await persistence.findStatus(workflowId);
-
-      if (found && status.includes(found)) {
-        return found;
-      }
-
-      await goSleep(ms);
-    }
-
-    return undefined;
-  };
-}
-
 function makePoll(
   claim: () => Promise<string | undefined>,
   run: (workflowId: string) => Promise<void>,
@@ -365,21 +389,13 @@ function makePoll(
   };
 }
 
-/**
- * Creates a client based on the given configuration. If no configuration is
- * provided, then the library defaults are used.
- * @param config The configutarion object.
- * @returns The client instance.
- */
-export async function makeClient(config: Config): Promise<Client> {
+export async function makeWorker(config: WorkerConfig): Promise<Worker> {
   const { handlers, persistence } = config;
-  await persistence.init();
   const maxFailures = config.maxFailures || DEFAULT_MAX_FAILURES;
   const timeoutIntervalMs = config.timeoutIntervalMs || DEFAULT_TIMEOUT_MS;
   const pollIntervalMs = config.pollIntervalMs || DEFAULT_POLL_MS;
   const retryIntervalMs = config.retryIntervalMs || DEFAULT_RETRY_MS;
   const start = makeStart(persistence);
-  const wait = makeWait(persistence);
   const claim = makeClaim(persistence, timeoutIntervalMs);
   const makeStep = makeMakeStep(persistence, timeoutIntervalMs);
   const makeSleep = makeMakeSleep(persistence, timeoutIntervalMs);
@@ -395,15 +411,5 @@ export async function makeClient(config: Config): Promise<Client> {
   );
 
   const poll = makePoll(claim, run, pollIntervalMs);
-  return { start, wait, poll };
+  return { poll };
 }
-
-export const forInternalTesting = {
-  makeClaim,
-  makeMakeStep,
-  makeMakeSleep,
-  makeRun,
-  makeStart,
-  makeWait,
-  makePoll,
-};
