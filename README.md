@@ -120,6 +120,7 @@ handlers.set(
 );
 
 const persistence = makeMongoPersistence("mongodb://localhost:27017/lidex");
+await persistence.init();
 const client = await makeClient({ persistence });
 const worker = await makeWorker({ persistence, handlers });
 
