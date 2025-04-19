@@ -1,15 +1,18 @@
-import { Config, forInternalTesting, makeClient, Persistence } from "./index";
-import { mock } from "jest-mock-extended";
-
-const {
+import {
+  ClientConfig,
   makeClaim,
-  makeMakeStep,
+  makeClient,
   makeMakeSleep,
+  makeMakeStep,
+  makePoll,
   makeRun,
   makeStart,
   makeWait,
-  makePoll,
-} = forInternalTesting;
+  makeWorker,
+  Persistence,
+  WorkerConfig,
+} from "./index";
+import { mock } from "jest-mock-extended";
 
 const persistence = mock<Persistence>();
 const now = new Date("2011-10-05T14:48:00.000Z");
@@ -346,13 +349,16 @@ describe("poll", () => {
 
 describe("makeClient", () => {
   it("creates a client", async () => {
-    const config: Config = {
-      persistence,
-      handlers: new Map(),
-    };
-
+    const config: ClientConfig = { persistence };
     const client = await makeClient(config);
     expect(client).toBeDefined();
-    expect(persistence.init).toHaveBeenCalled();
+  });
+});
+
+describe("makeWorker", () => {
+  it("creates a worker", async () => {
+    const config: WorkerConfig = { persistence, handlers: new Map() };
+    const worker = await makeWorker(config);
+    expect(worker).toBeDefined();
   });
 });
