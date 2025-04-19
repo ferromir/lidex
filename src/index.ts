@@ -200,7 +200,8 @@ export interface Persistence {
 
 // Shared code:
 
-async function goSleep(ms: number): Promise<void> {
+/** @internal */
+export async function goSleep(ms: number): Promise<void> {
   return new Promise<void>((resolve) => {
     setTimeout(() => {
       resolve();
@@ -208,7 +209,8 @@ async function goSleep(ms: number): Promise<void> {
   });
 }
 
-function makeStart(persistence: Persistence) {
+/** @internal */
+export function makeStart(persistence: Persistence) {
   return async function <T>(
     workflowId: string,
     handler: string,
@@ -220,7 +222,8 @@ function makeStart(persistence: Persistence) {
 
 // Client code:
 
-function makeWait(persistence: Persistence) {
+/** @internal */
+export function makeWait(persistence: Persistence) {
   return async function (
     workflowId: string,
     status: Status[],
@@ -255,7 +258,8 @@ const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_POLL_MS = 1_000;
 const DEFAULT_RETRY_MS = 60_000;
 
-function makeClaim(persistence: Persistence, timeoutIntervalMs: number) {
+/** @internal */
+export function makeClaim(persistence: Persistence, timeoutIntervalMs: number) {
   return async function (): Promise<string | undefined> {
     const now = new Date();
     const timeoutAt = new Date(now.getTime() + timeoutIntervalMs);
@@ -263,7 +267,11 @@ function makeClaim(persistence: Persistence, timeoutIntervalMs: number) {
   };
 }
 
-function makeMakeStep(persistence: Persistence, timeoutIntervalMs: number) {
+/** @internal */
+export function makeMakeStep(
+  persistence: Persistence,
+  timeoutIntervalMs: number,
+) {
   return function (workflowId: string) {
     return async function <T>(
       stepId: string,
@@ -284,7 +292,11 @@ function makeMakeStep(persistence: Persistence, timeoutIntervalMs: number) {
   };
 }
 
-function makeMakeSleep(persistence: Persistence, timeoutIntervalMs: number) {
+/** @internal */
+export function makeMakeSleep(
+  persistence: Persistence,
+  timeoutIntervalMs: number,
+) {
   return function (workflowId: string) {
     return async function (napId: string, ms: number): Promise<void> {
       let wakeUpAt = await persistence.findWakeUpAt(workflowId, napId);
@@ -308,7 +320,8 @@ function makeMakeSleep(persistence: Persistence, timeoutIntervalMs: number) {
   };
 }
 
-function makeRun(
+/** @internal */
+export function makeRun(
   persistence: Persistence,
   handlers: Map<string, Handler>,
   makeStep: (
@@ -371,7 +384,8 @@ function makeRun(
   };
 }
 
-function makePoll(
+/** @internal */
+export function makePoll(
   claim: () => Promise<string | undefined>,
   run: (workflowId: string) => Promise<void>,
   pollIntervalMs: number,
