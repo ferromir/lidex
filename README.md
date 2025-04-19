@@ -180,6 +180,11 @@ A function that allows you to wait until a workflow matches a given status. It i
 This is the configuration required to create a client.
 | Property | Default | Description |
 --------------------|-----------|--------------
+| persistence | | The persistence provider. |
+
+This is the configuration required to create a worker.
+| Property | Default | Description |
+--------------------|-----------|--------------
 | handlers | | A map where the key is the handler identifier and the value is the the handler function. This is how Lidex know during runtime what function should be used to run the workflow. |
 | persistence | | The persistence provider. |
 | maxFailures | 3 | The max amount of time a workflow can fail before changing it's status to "aborted". |
