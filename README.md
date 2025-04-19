@@ -108,7 +108,7 @@ async collectPayment(ctx: Context, invoiceId: string): Promise<void> {
 
 ```
 
-Creating a client and start polling workflows.
+Creating a client and a worker.
 
 ```TypeScript
 // Express and services setup omitted...
@@ -119,8 +119,9 @@ handlers.set(
   invoiceService.collectPayment.bind(invoiceService),
 );
 
-const persistence = new MongoPersistence("mongodb://localhost:27017/lidex");
-const client = await makeClient({ handlers, persistence });
+const persistence = makeMongoPersistence("mongodb://localhost:27017/lidex");
+const client = await makeClient({ persistence });
+const worker = await makeClient({ persistence, handlers });
 
 app.post("/invoices/:invoiceId/collect", async (req, res) => {
   const invoiceId = req.params.invoiceId;
@@ -138,7 +139,7 @@ app.listen(port, () => {
   console.log(`invoice service listening on port ${port}`);
 });
 
-await client.poll();
+await worker.poll();
 ```
 
 Full example [here](https://github.com/ferromir/durable-execution-node)
