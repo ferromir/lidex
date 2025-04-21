@@ -1,17 +1,24 @@
-import { makeStart } from "./common";
-import { Handler, Persistence, WorkerOptions, Worker } from "./model";
 import {
   makeClaim,
   makeMakeSleep,
   makeMakeStep,
+  makeStart,
+  makeWait,
   makeRun,
   makePoll,
-} from "./worker-internal";
+} from "./internal";
+import { Client, Handler, Persistence, Worker, WorkerOptions } from "./model";
 
 const DEFAULT_MAX_FAILURES = 3;
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_POLL_MS = 1_000;
 const DEFAULT_RETRY_MS = 60_000;
+
+export async function makeClient(persistence: Persistence): Promise<Client> {
+  const start = makeStart(persistence);
+  const wait = makeWait(persistence);
+  return { start, wait };
+}
 
 export async function makeWorker(
   persistence: Persistence,

@@ -1,5 +1,36 @@
-import { goSleep } from "./common";
-import { Context, Handler, Persistence } from "./model";
+import { Context, Handler, Persistence, Status } from "./model";
+import { goSleep } from "./go-sleep";
+
+export function makeStart(persistence: Persistence) {
+  return async function <T>(
+    workflowId: string,
+    handler: string,
+    input: T,
+  ): Promise<boolean> {
+    return persistence.insert(workflowId, handler, input);
+  };
+}
+
+export function makeWait(persistence: Persistence) {
+  return async function (
+    workflowId: string,
+    status: Status[],
+    times: number,
+    ms: number,
+  ): Promise<Status | undefined> {
+    for (let i = 0; i < times; i++) {
+      const foundStatus = await persistence.findStatus(workflowId);
+
+      if (foundStatus && status.includes(foundStatus)) {
+        return foundStatus;
+      }
+
+      await goSleep(ms);
+    }
+
+    return undefined;
+  };
+}
 
 export function makeClaim(persistence: Persistence, timeoutIntervalMs: number) {
   return async function (): Promise<string | undefined> {
