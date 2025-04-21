@@ -121,8 +121,8 @@ handlers.set(
 
 const persistence = makeMongoPersistence("mongodb://localhost:27017/lidex");
 await persistence.init();
-const client = await makeClient({ persistence });
-const worker = await makeWorker({ persistence, handlers });
+const client = await makeClient(persistence);
+const worker = await makeWorker(persistence, handlers);
 
 app.post("/invoices/:invoiceId/collect", async (req, res) => {
   const invoiceId = req.params.invoiceId;

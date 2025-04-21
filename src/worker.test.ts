@@ -1,15 +1,14 @@
 import { mock } from "jest-mock-extended";
 import {
-  makeStart,
-  makeWait,
   makeClaim,
   makeMakeStep,
   makeMakeSleep,
   makeRun,
   makePoll,
-} from "./internal";
+  makeWorker,
+} from "./worker";
 import { goSleep } from "./go-sleep";
-import type { Persistence, Handler, Status } from "./model";
+import type { Persistence, Handler, WorkerOptions } from "./model";
 
 jest.mock("./go-sleep", () => ({
   goSleep: jest.fn(),
@@ -17,34 +16,12 @@ jest.mock("./go-sleep", () => ({
 
 const now = new Date();
 jest.useFakeTimers().setSystemTime(now);
-
+const handler = jest.fn();
+const handlers = new Map<string, Handler>([["test", handler]]);
 const persistence = mock<Persistence>();
 
 afterEach(() => {
   jest.clearAllMocks();
-});
-
-test("makeStart inserts workflow", async () => {
-  const start = makeStart(persistence);
-  await start("id", "handler", { foo: "bar" });
-  expect(persistence.insert).toHaveBeenCalledWith("id", "handler", {
-    foo: "bar",
-  });
-});
-
-test("makeWait returns status when matched", async () => {
-  const wait = makeWait(persistence);
-  persistence.findStatus.mockResolvedValueOnce("finished" as Status);
-  const result = await wait("id", ["finished"], 3, 1000);
-  expect(result).toBe("finished");
-});
-
-test("makeWait returns undefined after polling", async () => {
-  const wait = makeWait(persistence);
-  persistence.findStatus.mockResolvedValue(undefined);
-  const result = await wait("id", ["finished"], 2, 1000);
-  expect(goSleep).toHaveBeenCalledTimes(2);
-  expect(result).toBeUndefined();
 });
 
 test("makeClaim calls persistence.claim with timeout", async () => {
@@ -223,4 +200,35 @@ test("makePoll runs claimed workflows and sleeps if none", async () => {
   expect(claimFn).toHaveBeenCalledTimes(2);
   expect(runFn).toHaveBeenCalledWith("wf1");
   expect(goSleep).toHaveBeenCalledWith(1000);
+});
+
+test("makeWorker returns a worker with a poll function", async () => {
+  persistence.findRunData.mockResolvedValue({
+    handler: "test",
+    input: {},
+    failures: 0,
+  });
+  persistence.setAsFinished.mockResolvedValue();
+
+  const worker = await makeWorker(persistence, handlers);
+  expect(worker.poll).toBeInstanceOf(Function);
+});
+
+test("makeWorker accepts custom options", async () => {
+  const options: WorkerOptions = {
+    maxFailures: 5,
+    timeoutIntervalMs: 10_000,
+    pollIntervalMs: 2000,
+    retryIntervalMs: 15000,
+  };
+
+  persistence.findRunData.mockResolvedValue({
+    handler: "test",
+    input: {},
+    failures: 0,
+  });
+  persistence.setAsFinished.mockResolvedValue();
+
+  const worker = await makeWorker(persistence, handlers, options);
+  expect(worker.poll).toBeInstanceOf(Function);
 });
