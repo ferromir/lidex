@@ -1,9 +1,6 @@
 import { makeClient, makeWorker } from "./index";
 
-test("should export makeClient", () => {
+test("should re-export", () => {
   expect(typeof makeClient).toBe("function");
-});
-
-test("should export makeWorker", () => {
   expect(typeof makeWorker).toBe("function");
 });

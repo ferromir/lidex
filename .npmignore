@@ -1,7 +1,17 @@
 .github/
 coverage/
+dist/src/client.test.d.ts
+dist/src/client.test.js
+dist/src/common.test.d.ts
+dist/src/common.test.js
+dist/src/go-sleep.test.d.ts
+dist/src/go-sleep.test.js
 dist/src/index.test.d.ts
 dist/src/index.test.js
+dist/src/internal.test.d.ts
+dist/src/internal.test.js
+dist/src/worker.test.d.ts
+dist/src/worker.test.js
 dist/jest.config.d.ts
 dist/jest.config.js
 src/
