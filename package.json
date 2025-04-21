@@ -1,8 +1,20 @@
 {
   "name": "lidex",
-  "version": "3.0.0",
-  "main": "dist/src/index.js",
-  "types": "dist/src/index.d.ts",
+  "version": "4.0.0",
+  "exports": {
+    "./model": {
+      "require": "./dist/src/model.js",
+      "types": "./dist/src/model.d.ts"
+    },
+    "./client": {
+      "require": "./dist/src/client.js",
+      "types": "./dist/src/client.d.ts"
+    },
+    "./worker": {
+      "require": "./dist/src/worker.js",
+      "types": "./dist/src/worker.d.ts"
+    }
+  },
   "scripts": {
     "build": "npx tsc",
     "test": "npx jest",
